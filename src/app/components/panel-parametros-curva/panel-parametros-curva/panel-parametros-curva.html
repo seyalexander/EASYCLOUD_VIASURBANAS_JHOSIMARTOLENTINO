@@ -44,7 +44,7 @@
       <button
         type="button"
         (click)="alternarReproduccion.emit()"
-        class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#EE8600] px-3 py-2.5 text-xs font-bold text-white transition-all duration-200  hover:bg-[#d97a00] cursor-pointer"
+        class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#EE8600] px-3 py-2.5 text-xs font-bold text-white transition-all duration-200 hover:bg-[#d97a00] cursor-pointer"
       >
         @if (estaReproduciendo()) {
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -268,4 +268,41 @@
       </label>
     }
   </div>
+
+  <!-- ===== VALIDACIÓN Y CÁLCULOS DEL LIBRO ===== -->
+  <div class="my-4 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" aria-hidden="true"></div>
+
+  @if (!geometria().esValida) {
+    <div class="rounded-xl bg-[#F04C4D]/10 px-3 py-2.5 text-xs font-semibold text-[#b91c1c] ring-1 ring-[#F04C4D]/25">
+      {{ geometria().mensajeValidacion }}
+    </div>
+  } @else {
+    <div class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200/80">
+      <div class="mb-2 flex items-center justify-between text-[11px] font-bold text-slate-600">
+        <span>Cálculo Cap. 4</span>
+        <span class="tabular-nums text-[#005FAE]">Lc: {{ geometria().longitudTotalCurvaMetros.toFixed(2) }} m</span>
+      </div>
+
+      @if (parametros().tipoCurva === 'compuesta-3-radios') {
+        <div class="grid grid-cols-3 gap-1.5 text-center text-[11px]">
+          <div class="rounded-lg bg-white px-2 py-1 ring-1 ring-slate-200/70">
+            <span class="block text-[10px] text-slate-400">Δ1 / L1</span>
+            <strong class="text-slate-800">{{ geometria().angulo1Grados.toFixed(1) }}° / {{ geometria().longitudArco1Metros.toFixed(1) }}m</strong>
+          </div>
+          <div class="rounded-lg bg-white px-2 py-1 ring-1 ring-slate-200/70">
+            <span class="block text-[10px] text-slate-400">Δ2 / L2</span>
+            <strong class="text-slate-800">{{ geometria().angulo2Grados.toFixed(1) }}° / {{ geometria().longitudArco2Metros.toFixed(1) }}m</strong>
+          </div>
+          <div class="rounded-lg bg-white px-2 py-1 ring-1 ring-slate-200/70">
+            <span class="block text-[10px] text-slate-400">Δ3 / L3</span>
+            <strong class="text-slate-800">{{ geometria().angulo3Grados.toFixed(1) }}° / {{ geometria().longitudArco3Metros.toFixed(1) }}m</strong>
+          </div>
+        </div>
+      }
+
+      @for (obs of geometria().observacionesLibro; track obs) {
+        <p class="mt-2 text-[11px] font-medium text-slate-500">{{ obs }}</p>
+      }
+    </div>
+  }
 </section>

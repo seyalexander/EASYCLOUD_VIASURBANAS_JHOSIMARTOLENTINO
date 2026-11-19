@@ -32,16 +32,24 @@ export interface ParametrosCurva {
   longitudTramoRectoMetros: number;
 }
 
-/** Resultados geométricos calculados para la curva */
+/** Resultados geométricos calculados para la curva según el Capítulo 4 del libro */
 export interface ResultadoGeometriaCurva {
   esValida: boolean;
   mensajeValidacion: string;
+  /** Observaciones normativas o de validación (ej. separación mínima de 0.60 m) */
+  observacionesLibro: string[];
   /** Ángulo central del primer tramo en grados */
   angulo1Grados: number;
   /** Ángulo central del tramo intermedio en grados */
   angulo2Grados: number;
   /** Ángulo central del tercer tramo en grados */
   angulo3Grados: number;
+  /** Tangente simple T1 = R1 * tan(delta1 / 2) en metros */
+  tangente1Metros: number;
+  /** Tangente simple T2 = R2 * tan(delta2 / 2) en metros */
+  tangente2Metros: number;
+  /** Tangente simple T3 = R3 * tan(delta3 / 2) en metros */
+  tangente3Metros: number;
   /** Longitud de arco del tramo 1 en metros */
   longitudArco1Metros: number;
   /** Longitud de arco del tramo 2 en metros */

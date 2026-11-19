@@ -1,40 +1,22 @@
 <section
-  class="grid grid-cols-1 gap-4 xl:h-[calc(100dvh-9.5rem)] xl:min-h-160 xl:grid-cols-[320px_minmax(0,1fr)_330px] xl:grid-rows-[minmax(0,1fr)]"
->
+  class="grid grid-cols-1 gap-4 xl:h-[calc(100dvh-9.5rem)] xl:min-h-160 xl:grid-cols-[320px_minmax(0,1fr)_330px] xl:grid-rows-[minmax(0,1fr)]">
   <aside class="min-h-0">
-    <app-panel-vehiculos
-      class="block h-full"
-      [vehiculos]="listaVehiculos()"
-      [vehiculoSeleccionado]="vehiculoActual()"
+    <app-panel-vehiculos class="block h-full" [vehiculos]="listaVehiculos()" [vehiculoSeleccionado]="vehiculoActual()"
       (seleccionarVehiculo)="alSeleccionarVehiculo($event)"
-      (cambiarVehiculoPersonalizado)="alCambiarVehiculoPersonalizado($event)"
-    />
+      (cambiarVehiculoPersonalizado)="alCambiarVehiculoPersonalizado($event)" />
   </aside>
 
   <div class="min-h-90 min-w-0 xl:min-h-0">
-    <app-lienzo-simulacion
-      class="block h-full"
-      [geometria]="geometriaActual()"
-      [vehiculo]="vehiculoActual()"
-      [postura]="posturaActual()"
-    />
+    <app-lienzo-simulacion class="block h-full" [geometria]="geometriaActual()" [vehiculo]="vehiculoActual()"
+      [postura]="posturaActual()" />
   </div>
 
   <aside class="min-h-0">
-    <app-panel-parametros-curva
-      class="block h-full"
-      [parametros]="parametrosCurva()"
-      [modoMovimiento]="modoMovimiento()"
-      [estaReproduciendo]="estaReproduciendo()"
-      [progreso]="progreso()"
-      [velocidad]="velocidad()"
-      (cambiarParametros)="alCambiarParametros($event)"
-      (cambiarModo)="alCambiarModo($event)"
-      (alternarReproduccion)="alAlternarReproduccion()"
-      (reiniciarAnimacion)="alReiniciarAnimacion()"
-      (cambiarProgresoManual)="alCambiarProgresoManual($event)"
-      (cambiarVelocidad)="alCambiarVelocidad($event)"
-      (ajustarAVehiculo)="alAjustarCurvaAVehiculoActual()"
-    />
+    <app-panel-parametros-curva [parametros]="parametrosCurva()" [geometria]="geometriaActual()"
+      [modoMovimiento]="modoMovimiento()" [estaReproduciendo]="estaReproduciendo()" [progreso]="progreso()"
+      [velocidad]="velocidad()" (cambiarParametros)="alCambiarParametros($event)" (cambiarModo)="alCambiarModo($event)"
+      (alternarReproduccion)="alAlternarReproduccion()" (reiniciarAnimacion)="alReiniciarAnimacion()"
+      (cambiarProgresoManual)="alCambiarProgresoManual($event)" (cambiarVelocidad)="alCambiarVelocidad($event)"
+      (ajustarAVehiculo)="alAjustarCurvaAVehiculoActual()" />
   </aside>
 </section>

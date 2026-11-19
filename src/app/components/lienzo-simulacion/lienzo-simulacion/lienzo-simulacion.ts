@@ -11,7 +11,6 @@ import { Punto2D, ResultadoGeometriaCurva } from '../../../core/modelos/modelo-c
 import { EspecificacionVehiculo } from '../../../core/modelos/modelo-vehiculos';
 import { PosturaVehiculo } from '../../../core/modelos/modelo-simulacion';
 
-
 @Component({
   selector: 'app-lienzo-simulacion',
   imports: [],

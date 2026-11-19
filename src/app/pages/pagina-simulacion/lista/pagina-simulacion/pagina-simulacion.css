@@ -1,0 +1,13 @@
+CSS
+.rejilla-simulacion {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 330px;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .rejilla-simulacion {
+    grid-template-columns: 1fr;
+  }
+}

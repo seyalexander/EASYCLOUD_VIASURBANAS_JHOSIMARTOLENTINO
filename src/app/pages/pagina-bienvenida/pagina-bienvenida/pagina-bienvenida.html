@@ -1,0 +1,211 @@
+<section class="max-w-6xl mx-auto flex flex-col gap-10 py-2">
+  <!-- HERO -->
+  <div
+    class="relative overflow-hidden rounded-[2rem] bg-linear-to-br from-[#003B73] via-[#005FAE] to-[#0A7FCB] text-white shadow-[0_30px_60px_-24px_rgba(0,59,115,0.55)]"
+  >
+    <!-- Malla de fondo sutil -->
+    <div
+      class="absolute inset-0 opacity-[0.12]"
+      aria-hidden="true"
+      style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px); background-size: 36px 36px; mask-image: radial-gradient(ellipse at 70% 40%, black 20%, transparent 75%);"
+    ></div>
+    <div class="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-[#3FBFEF]/25 blur-3xl" aria-hidden="true"></div>
+    <div class="absolute -bottom-28 right-10 h-72 w-72 rounded-full bg-[#EE8600]/25 blur-3xl" aria-hidden="true"></div>
+
+    <div class="relative z-10 grid lg:grid-cols-[1.15fr_0.85fr] items-center gap-8 px-6 py-12 sm:px-12 sm:py-16">
+      <!-- Texto -->
+      <div class="text-center lg:text-left">
+        <div class="inline-flex items-center gap-2 rounded-full bg-white/12 px-4 py-1.5 text-xs font-semibold tracking-wide backdrop-blur-sm mb-6">
+          <span class="relative flex h-2 w-2">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#FDD839] opacity-75"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-[#FDD839]"></span>
+          </span>
+          <span>Diseño Geométrico Vial · UPAO</span>
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.1] mb-5">
+          {{ nombreProyecto }}
+        </h1>
+
+        <p class="max-w-xl mx-auto lg:mx-0 text-sm sm:text-base text-blue-50/85 leading-relaxed mb-9">
+          {{ subtitulo }}
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center lg:justify-start gap-3">
+          <a
+            routerLink="/simulacion"
+            class="group inline-flex items-center gap-2 rounded-2xl bg-[#EE8600] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_-8px_rgba(238,134,0,0.7)] transition-all duration-200 hover:bg-[#d97a00] hover:-translate-y-0.5"
+          >
+            <span>Ir al Simulador Interactivo</span>
+            <span class="transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true">→</span>
+          </a>
+
+          <span class="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 text-xs font-semibold backdrop-blur-sm">
+            <span class="h-2 w-2 rounded-full bg-[#43B3C0]"></span>
+            Modo automático &amp; manual
+          </span>
+        </div>
+      </div>
+
+      <!-- Ilustración: retorno vial animado -->
+      <div class="hidden lg:flex justify-center" aria-hidden="true">
+        <svg viewBox="0 0 320 300" class="w-full max-w-sm drop-shadow-xl">
+          <!-- Calzada -->
+          <path
+            d="M60 280 V130 A100 100 0 0 1 260 130 V280"
+            fill="none"
+            stroke="rgba(255,255,255,0.14)"
+            stroke-width="64"
+            stroke-linecap="butt"
+          />
+          <!-- Bordes de calzada -->
+          <path
+            d="M60 280 V130 A100 100 0 0 1 260 130 V280"
+            fill="none"
+            stroke="rgba(255,255,255,0.35)"
+            stroke-width="66"
+            stroke-dasharray="1 0"
+            opacity="0.0"
+          />
+          <!-- Eje central -->
+          <path
+            d="M60 280 V130 A100 100 0 0 1 260 130 V280"
+            fill="none"
+            stroke="#FDD839"
+            stroke-width="2.5"
+            stroke-dasharray="10 10"
+            stroke-linecap="round"
+          />
+          <!-- Trayectoria de giro -->
+          <path
+            id="trayectoria"
+            d="M82 280 V130 A78 78 0 0 1 238 130 V280"
+            fill="none"
+            stroke="#3FBFEF"
+            stroke-width="2"
+            stroke-dasharray="3 6"
+            stroke-linecap="round"
+          />
+          <!-- Vehículo -->
+          <g>
+            <rect x="-17" y="-8" width="34" height="16" rx="4" fill="#EE8600" />
+            <rect x="4" y="-6" width="9" height="12" rx="2" fill="#FFF3D6" opacity="0.9" />
+            <animateMotion dur="7s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#trayectoria" />
+            </animateMotion>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- FICHA ACADÉMICA (dentro del hero) -->
+    <div class="relative z-10 border-t border-white/15 bg-white/[0.06] px-6 py-5 backdrop-blur-sm sm:px-12">
+      <div class="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
+        <!-- Foto del alumno -->
+        @if (fotoAlumno) {
+          <img
+            [src]="fotoAlumno"
+            [alt]="'Foto de ' + nombreAlumno"
+            class="h-16 w-16 shrink-0 rounded-2xl object-cover ring-2 ring-white/40 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.5)]"
+          />
+        } @else {
+          <span
+            class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#EE8600] to-[#FDD839] text-xl font-extrabold text-[#003B73] ring-2 ring-white/40 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.5)]"
+            aria-hidden="true"
+          >
+            {{ iniciales }}
+          </span>
+        }
+
+        <dl class="grid w-full flex-1 grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8">
+          <!-- Curso -->
+          <div class="flex items-center justify-center gap-3.5 sm:justify-start">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 text-[#FDD839]">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 9l10-5 10 5-10 5L2 9z" />
+                <path d="M6 11.5V16c0 1.2 2.7 3 6 3s6-1.8 6-3v-4.5" />
+              </svg>
+            </span>
+            <div class="min-w-0">
+              <dt class="text-[11px] font-semibold uppercase tracking-wider text-blue-100/70">Curso</dt>
+              <dd class="truncate text-sm font-semibold text-white sm:text-base">{{ nombreCurso }}</dd>
+            </div>
+          </div>
+
+          <!-- Alumno -->
+          <div class="flex items-center justify-center gap-3.5 sm:justify-start">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 text-[#3FBFEF]">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
+              </svg>
+            </span>
+            <div class="min-w-0">
+              <dt class="text-[11px] font-semibold uppercase tracking-wider text-blue-100/70">Alumno</dt>
+              <dd class="truncate text-sm font-semibold text-white sm:text-base">{{ nombreAlumno }}</dd>
+            </div>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- TARJETAS -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    @for (item of caracteristicas; track item.titulo; let i = $index) {
+      <article
+        class="group relative flex flex-col rounded-3xl bg-white p-7 ring-1 ring-slate-900/5 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.12)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_44px_-16px_rgba(0,95,174,0.28)]"
+      >
+        <span class="absolute right-7 top-7 text-sm font-bold tabular-nums text-slate-200 transition-colors group-hover:text-slate-300">
+          0{{ i + 1 }}
+        </span>
+
+        <!-- Icono -->
+        <div
+          class="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+          [class]="obtenerClasesIcono(item.acento)"
+        >
+          @switch (item.icono) {
+            @case ('vehiculo') {
+              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 13l1.6-4.6A2 2 0 0 1 6.5 7h11a2 2 0 0 1 1.9 1.4L21 13" />
+                <rect x="3" y="13" width="18" height="5" rx="1.5" />
+                <circle cx="7.5" cy="18" r="1.5" />
+                <circle cx="16.5" cy="18" r="1.5" />
+              </svg>
+            }
+            @case ('animacion') {
+              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M10 8.5v7l5.5-3.5L10 8.5z" />
+              </svg>
+            }
+            @default {
+              <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 20V10a6 6 0 0 1 6-6h10" />
+                <path d="M4 20h4M20 4v4" />
+                <circle cx="4" cy="20" r="1" />
+                <circle cx="20" cy="4" r="1" />
+              </svg>
+            }
+          }
+        </div>
+
+        <span class="mb-3 inline-block self-start rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider" [class]="obtenerClasesInsignia(item.acento)">
+          {{ item.etiqueta }}
+        </span>
+
+        <h2 class="mb-2 text-lg font-bold tracking-tight text-slate-900">
+          {{ item.titulo }}
+        </h2>
+
+        <p class="text-sm leading-relaxed text-slate-600">
+          {{ item.descripcion }}
+        </p>
+
+        <!-- Barra de acento que crece al hacer hover -->
+        <div class="mt-6 h-1 w-10 rounded-full transition-all duration-300 group-hover:w-24" [class]="obtenerClasesBarra(item.acento)"></div>
+      </article>
+    }
+  </div>
+</section>

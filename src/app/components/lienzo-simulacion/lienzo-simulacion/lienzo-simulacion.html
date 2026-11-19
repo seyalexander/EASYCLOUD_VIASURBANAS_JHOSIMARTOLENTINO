@@ -1,0 +1,28 @@
+<section class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+    <div>
+      <h2 class="text-base font-bold text-slate-900">Simulación Geométrica en Planta (2D)</h2>
+      <span
+        class="inline-block mt-1 px-3 py-1 rounded-full border text-xs font-bold"
+        [class]="obtenerClasesEstado()"
+      >
+        {{ obtenerTextoEstado() }}
+      </span>
+    </div>
+
+    <div class="flex flex-wrap gap-3 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+      <span>Avance: <strong class="text-slate-900">{{ postura().distanciaRecorridaMetros.toFixed(1) }} m</strong></span>
+      <span>Long. curva: <strong class="text-slate-900">{{ geometria().longitudTotalCurvaMetros.toFixed(1) }} m</strong></span>
+      <span>Holgura mín.: <strong class="text-slate-900">{{ postura().distanciaMinimaBordeMetros.toFixed(2) }} m</strong></span>
+    </div>
+  </div>
+
+  <div class="w-full overflow-hidden rounded-xl border border-slate-300">
+    <canvas
+      #canvasSimulacion
+      width="860"
+      height="520"
+      class="w-full h-auto block"
+    ></canvas>
+  </div>
+</section>

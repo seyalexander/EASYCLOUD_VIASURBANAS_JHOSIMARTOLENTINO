@@ -5,8 +5,7 @@ import {
   OnChanges,
   SimpleChanges,
   ViewChild,
-  input
-} from '@angular/core';
+  input } from '@angular/core';
 import { Punto2D, ResultadoGeometriaCurva } from '../../../core/modelos/modelo-curva';
 import { EspecificacionVehiculo } from '../../../core/modelos/modelo-vehiculos';
 import {

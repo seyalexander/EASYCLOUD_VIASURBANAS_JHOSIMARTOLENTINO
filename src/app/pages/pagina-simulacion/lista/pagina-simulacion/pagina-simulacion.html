@@ -8,15 +8,17 @@
 
   <div class="min-h-90 min-w-0 xl:min-h-0">
     <app-lienzo-simulacion class="block h-full" [geometria]="geometriaActual()" [vehiculo]="vehiculoActual()"
-      [postura]="posturaActual()" />
+      [postura]="posturaActual()" [catalogoVehiculos]="listaVehiculos()" [vehiculosEnEscena]="vehiculosEnEscena()" />
   </div>
 
   <aside class="min-h-0">
-    <app-panel-parametros-curva [parametros]="parametrosCurva()" [geometria]="geometriaActual()"
+    <app-panel-parametros-curva class="block h-full" [parametros]="parametrosCurva()" [geometria]="geometriaActual()"
       [modoMovimiento]="modoMovimiento()" [estaReproduciendo]="estaReproduciendo()" [progreso]="progreso()"
-      [velocidad]="velocidad()" (cambiarParametros)="alCambiarParametros($event)" (cambiarModo)="alCambiarModo($event)"
-      (alternarReproduccion)="alAlternarReproduccion()" (reiniciarAnimacion)="alReiniciarAnimacion()"
-      (cambiarProgresoManual)="alCambiarProgresoManual($event)" (cambiarVelocidad)="alCambiarVelocidad($event)"
-      (ajustarAVehiculo)="alAjustarCurvaAVehiculoActual()" />
+      [velocidad]="velocidad()" [configuracionTrafico]="configuracionTrafico()"
+      [vehiculosDisponibles]="listaVehiculos()" (cambiarParametros)="alCambiarParametros($event)"
+      (cambiarModo)="alCambiarModo($event)" (alternarReproduccion)="alAlternarReproduccion()"
+      (reiniciarAnimacion)="alReiniciarAnimacion()" (cambiarProgresoManual)="alCambiarProgresoManual($event)"
+      (cambiarVelocidad)="alCambiarVelocidad($event)" (ajustarAVehiculo)="alAjustarCurvaAVehiculoActual()"
+      (cambiarConfiguracionTrafico)="alCambiarConfiguracionTrafico($event)" />
   </aside>
 </section>

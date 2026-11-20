@@ -1,5 +1,4 @@
-<section class="rounded-3xl bg-white p-5 ring-1 ring-slate-900/5 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.12)]">
-  <!-- Encabezado -->
+<section class="h-full overflow-y-auto rounded-3xl bg-white p-5 ring-1 ring-slate-900/5 shadow-[0_10px_30px_-14px_rgba(15,23,42,0.12)]">
   <div class="mb-5 flex items-center gap-3">
     <span
       class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-[#005FAE] to-[#0A7FCB] text-white shadow-[0_8px_18px_-6px_rgba(0,95,174,0.6)]"
@@ -112,6 +111,83 @@
 
   <div class="my-5 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" aria-hidden="true"></div>
 
+  <!-- ===== FLUJO DE TRÁFICO MULTI-VEHÍCULO ===== -->
+  <div class="mb-3 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <span class="h-2 w-2 rounded-full bg-emerald-600" aria-hidden="true"></span>
+      <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Flujo vehicular</span>
+    </div>
+    <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+      Sin congestión
+    </span>
+  </div>
+
+  <div class="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1">
+    <button
+      type="button"
+      (click)="alCambiarModoTrafico('unico')"
+      [class]="claseSegmento(configuracionTrafico().modoTrafico === 'unico')"
+    >
+      Tipo único
+    </button>
+    <button
+      type="button"
+      (click)="alCambiarModoTrafico('fluido-aleatorio')"
+      [class]="claseSegmento(configuracionTrafico().modoTrafico === 'fluido-aleatorio')"
+    >
+      Flujo aleatorio
+    </button>
+  </div>
+
+  <div class="mb-3">
+    <div class="mb-1.5 flex items-center justify-between text-xs">
+      <span class="font-semibold text-slate-600">Cantidad de vehículos</span>
+      <span class="rounded-full bg-[#005FAE]/8 px-2 py-0.5 text-xs font-bold tabular-nums text-[#005FAE]">
+        {{ configuracionTrafico().cantidadVehiculos }}
+      </span>
+    </div>
+    <input
+      type="range"
+      min="1"
+      max="12"
+      step="1"
+      [ngModel]="configuracionTrafico().cantidadVehiculos"
+      (ngModelChange)="alCambiarCantidadVehiculos($event)"
+      class="w-full cursor-pointer accent-[#005FAE]"
+    />
+  </div>
+
+  @if (configuracionTrafico().modoTrafico === 'fluido-aleatorio') {
+    <div class="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200/80">
+      <span class="mb-2 block text-[11px] font-semibold text-slate-600">
+        Tipos activos en el flujo
+      </span>
+      <div class="mb-2.5 flex flex-wrap gap-1.5">
+        @for (veh of vehiculosDisponibles(); track veh.id) {
+          <button
+            type="button"
+            (click)="alternarTipoEnTrafico(veh.id)"
+            [class]="claseChipVehiculo(configuracionTrafico().tiposHabilitados.includes(veh.id))"
+          >
+            {{ obtenerEtiquetaCortaVehiculo(veh.id) }}
+          </button>
+        }
+      </div>
+
+      <label class="flex cursor-pointer items-center justify-between border-t border-slate-200/80 pt-2 text-xs font-semibold text-slate-700">
+        <span>Incluir cruce por vía recta (Eje Y)</span>
+        <input
+          type="checkbox"
+          [checked]="configuracionTrafico().incluirViaRecta"
+          (change)="alternarIncluirViaRecta()"
+          class="h-4 w-4 rounded accent-[#005FAE]"
+        />
+      </label>
+    </div>
+  }
+
+  <div class="my-5 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" aria-hidden="true"></div>
+
   <!-- ===== GEOMETRÍA ===== -->
   <div class="mb-3 flex items-center justify-between gap-2">
     <div class="flex items-center gap-2">
@@ -132,7 +208,6 @@
     </button>
   </div>
 
-  <!-- Tipo de curva -->
   <div class="mb-3">
     <span class="mb-1.5 block text-xs font-semibold text-slate-600">Tipo de curva</span>
     <div class="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1">
@@ -153,7 +228,6 @@
     </div>
   </div>
 
-  <!-- Sentido de giro -->
   <div class="mb-5">
     <span class="mb-1.5 block text-xs font-semibold text-slate-600">Sentido de giro</span>
     <div class="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/90 p-1">
@@ -174,7 +248,6 @@
     </div>
   </div>
 
-  <!-- Parámetros numéricos -->
   <div class="grid grid-cols-2 gap-3">
     <label class="flex flex-col gap-1.5">
       <span class="flex items-center justify-between text-xs font-semibold text-slate-600">
@@ -269,7 +342,6 @@
     }
   </div>
 
-  <!-- ===== VALIDACIÓN Y CÁLCULOS DEL LIBRO ===== -->
   <div class="my-4 h-px bg-linear-to-r from-transparent via-slate-200 to-transparent" aria-hidden="true"></div>
 
   @if (!geometria().esValida) {

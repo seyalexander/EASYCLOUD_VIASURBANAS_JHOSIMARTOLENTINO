@@ -38,6 +38,11 @@ export class PaginaSimulacion implements OnDestroy {
   public readonly parametrosCurva = signal<ParametrosCurva>({
     tipoCurva: 'compuesta-3-radios',
     sentidoGiro: 'derecha',
+    rutaOvalo: 'ovalo-perimetral',
+    carrilSeleccionado: 1,
+    anchoCarrilMetros: 3.6,
+    semiejeXMetros: 42,
+    semiejeYMetros: 28,
     anguloDeflexionGrados: 90,
     radio1Metros: 22,
     radio2Metros: 12,
@@ -118,7 +123,16 @@ export class PaginaSimulacion implements OnDestroy {
   }
 
   public alCambiarParametros(nuevosParametros: ParametrosCurva): void {
-    this.parametrosCurva.set(nuevosParametros);
+    const anteriores = this.parametrosCurva();
+    const calzadaCambio =
+      nuevosParametros.anchoCalzadaMetros !== anteriores.anchoCalzadaMetros;
+
+    this.parametrosCurva.set({
+      ...nuevosParametros,
+      anchoCarrilMetros: calzadaCambio
+        ? Number((nuevosParametros.anchoCalzadaMetros / 2).toFixed(2))
+        : nuevosParametros.anchoCarrilMetros
+    });
   }
 
   public alCambiarModo(nuevoModo: ModoMovimiento): void {

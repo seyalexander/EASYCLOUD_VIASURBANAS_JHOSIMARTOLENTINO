@@ -3,14 +3,10 @@ import { Punto2D, ResultadoGeometriaCurva } from '../../modelos/modelo-curva';
 import { EspecificacionVehiculo } from '../../modelos/modelo-vehiculos';
 import { EstadoHolgura, PosturaVehiculo } from '../../modelos/modelo-simulacion';
 
-
 @Injectable({
   providedIn: 'root'
 })
 export class ServicioCinematicaVehiculo {
-  /**
-   * Calcula la postura del vehículo dado un progreso entre 0 y 1 sobre el recorrido.
-   */
   public calcularPosturaEnProgreso(
     geometria: ResultadoGeometriaCurva,
     vehiculo: EspecificacionVehiculo,
@@ -25,7 +21,6 @@ export class ServicioCinematicaVehiculo {
       return this.crearPosturaVacia(progresoAcotado);
     }
 
-    // Acumulamos longitudes de segmento para ubicar el punto objetivo en el eje
     const longitudesSegmento: number[] = [0];
     let acumulado = 0;
     for (let i = 1; i < puntos.length; i++) {
@@ -45,7 +40,6 @@ export class ServicioCinematicaVehiculo {
       distanciaObjetivo
     );
 
-    // Punto guía ligeramente adelantado (distancia entre ejes L) para orientar la dirección natural
     const distanciaAdelantada = Math.min(
       totalLongitud,
       distanciaObjetivo + Math.max(1.0, vehiculo.distanciaEjesMetros)
@@ -61,10 +55,8 @@ export class ServicioCinematicaVehiculo {
       puntoAdelantado.x - puntoGuia.x
     );
 
-    // Suavizado cinemático según distancia entre ejes (L) para un giro más realista
     const anguloCarroceriaRad = anguloTangenteGuia;
 
-    // Estimación del ángulo de dirección de las ruedas delanteras (modelo de bicicleta: tan(delta) ~ L / R)
     const puntoPosterior = this.interpolarPuntoPorDistancia(
       puntos,
       longitudesSegmento,
@@ -80,7 +72,6 @@ export class ServicioCinematicaVehiculo {
       Math.max(0.5, vehiculo.distanciaEjesMetros)
     );
 
-    // El centro geométrico del rectángulo del vehículo está desplazado respecto al eje trasero
     const centroGeometricoX =
       puntoGuia.x +
       (-vehiculo.vueloTraseroMetros + vehiculo.largoMetros / 2) *
@@ -106,6 +97,7 @@ export class ServicioCinematicaVehiculo {
     return {
       distanciaRecorridaMetros: distanciaRecorrida,
       progreso: progresoAcotado,
+      carril: 1,
       posicionEjeTrasero: puntoGuia,
       anguloCarroceriaRad,
       anguloDireccionRuedasRad,
@@ -115,7 +107,6 @@ export class ServicioCinematicaVehiculo {
     };
   }
 
-  /** Interpola linealmente un punto sobre la polilínea a una distancia acumulada dada */
   private interpolarPuntoPorDistancia(
     puntos: Punto2D[],
     distanciasAcumuladas: number[],
@@ -145,7 +136,6 @@ export class ServicioCinematicaVehiculo {
     return { ...puntos[ultimoIndice] };
   }
 
-  /** Calcula las 4 esquinas del rectángulo del vehículo rotado por anguloRad */
   private calcularCuatroEsquinas(
     centro: Punto2D,
     largo: number,
@@ -170,10 +160,6 @@ export class ServicioCinematicaVehiculo {
     }));
   }
 
-  /**
-   * Evalúa la distancia mínima de las esquinas del vehículo hacia los bordes de calzada
-   * para clasificar el estado como seguro, ajuste o invasión.
-   */
   private evaluarHolguraConBordes(
     esquinas: Punto2D[],
     geometria: ResultadoGeometriaCurva,
@@ -182,9 +168,16 @@ export class ServicioCinematicaVehiculo {
     let distanciaMinima = Number.POSITIVE_INFINITY;
 
     const revisarPolilinea = (borde: Punto2D[]): void => {
+      if (borde.length < 2) {
+        return;
+      }
       for (const esquina of esquinas) {
-        for (const ptBorde of borde) {
-          const dist = Math.hypot(esquina.x - ptBorde.x, esquina.y - ptBorde.y);
+        for (let i = 1; i < borde.length; i++) {
+          const dist = this.distanciaPuntoASegmento(
+            esquina,
+            borde[i - 1],
+            borde[i]
+          );
           if (dist < distanciaMinima) {
             distanciaMinima = dist;
           }
@@ -208,6 +201,21 @@ export class ServicioCinematicaVehiculo {
     return { estadoHolgura: 'seguro', distanciaMinimaBorde: distanciaMinima };
   }
 
+  private distanciaPuntoASegmento(p: Punto2D, a: Punto2D, b: Punto2D): number {
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const longitudCuadrada = abx * abx + aby * aby;
+    if (longitudCuadrada === 0) {
+      return Math.hypot(p.x - a.x, p.y - a.y);
+    }
+    const t = Math.max(
+      0,
+      Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / longitudCuadrada)
+    );
+    const proyX = a.x + t * abx;
+    const proyY = a.y + t * aby;
+    return Math.hypot(p.x - proyX, p.y - proyY);
+  }
   private normalizarAngulo(anguloRad: number): number {
     let a = anguloRad;
     while (a > Math.PI) {
@@ -223,6 +231,7 @@ export class ServicioCinematicaVehiculo {
     return {
       distanciaRecorridaMetros: 0,
       progreso,
+      carril: 1,
       posicionEjeTrasero: { x: 0, y: 0 },
       anguloCarroceriaRad: 0,
       anguloDireccionRuedasRad: 0,

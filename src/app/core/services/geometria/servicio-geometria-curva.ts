@@ -1,28 +1,26 @@
 import { Injectable } from '@angular/core';
-import { ParametrosCurva, Punto2D, ResultadoGeometriaCurva } from '../../modelos/modelo-curva';
+import {
+  ParametrosCurva,
+  Punto2D,
+  ResultadoGeometriaCurva
+} from '../../modelos/modelo-curva';
 import { EspecificacionVehiculo } from '../../modelos/modelo-vehiculos';
-
 
 @Injectable({
   providedIn: 'root'
 })
 export class ServicioGeometriaCurva {
-  /** Separación mínima de seguridad establecida en el Capítulo 4 del libro (m) */
+  /** Separación mínima de seguridad del Capítulo 4 del libro (m) */
   public readonly separacionSeguridadLibroMetros = 0.6;
 
-  /** Paso de discretización en metros para generar puntos suaves de trayectoria y bordes */
-  private readonly pasoDiscretizacionMetros = 0.5;
+  private readonly pasoDiscretizacionMetros = 0.6;
 
-  /**
-   * Calcula y valida la geometría de la curva según el Capítulo 4 del libro.
-   */
   public calcularGeometria(parametros: ParametrosCurva): ResultadoGeometriaCurva {
     const validacionBase = this.validarParametrosBase(parametros);
     if (!validacionBase.esValida) {
       return this.crearResultadoInvalido(validacionBase.mensaje);
     }
 
-    const signoGiro = parametros.sentidoGiro === 'derecha' ? -1 : 1;
     const deltaTotalRad = this.gradosARadianes(parametros.anguloDeflexionGrados);
 
     let angulo1Rad = 0;
@@ -32,7 +30,6 @@ export class ServicioGeometriaCurva {
     const radio2 = parametros.radio2Metros;
     let radio1 = parametros.radio1Metros;
     let radio3 = parametros.radio3Metros;
-
     const observacionesLibro: string[] = [];
 
     if (parametros.tipoCurva === 'simple') {
@@ -40,7 +37,6 @@ export class ServicioGeometriaCurva {
       radio3 = radio2;
       angulo2Rad = deltaTotalRad;
     } else {
-      // Validación de radios R1 y R3 respecto a R2 para evitar división por cero o valores inconsistentes
       if (radio1 <= radio2) {
         return this.crearResultadoInvalido(
           'En una curva compuesta de 3 radios, R1 debe ser mayor que R2.'
@@ -52,15 +48,16 @@ export class ServicioGeometriaCurva {
         );
       }
 
-      // Argumentos del coseno inverso según las relaciones de desplazamiento d1 y d2 del libro
-      const argumentoCos1 = (radio1 - radio2 - parametros.desplazamiento1Metros) / (radio1 - radio2);
+      const argumentoCos1 =
+        (radio1 - radio2 - parametros.desplazamiento1Metros) / (radio1 - radio2);
       if (argumentoCos1 < -1 || argumentoCos1 > 1) {
         return this.crearResultadoInvalido(
           'El argumento de cos⁻¹ para Δ1 está fuera de [-1, 1]. Revisa R1, R2 o d1.'
         );
       }
 
-      const argumentoCos3 = (radio3 - radio2 - parametros.desplazamiento2Metros) / (radio3 - radio2);
+      const argumentoCos3 =
+        (radio3 - radio2 - parametros.desplazamiento2Metros) / (radio3 - radio2);
       if (argumentoCos3 < -1 || argumentoCos3 > 1) {
         return this.crearResultadoInvalido(
           'El argumento de cos⁻¹ para Δ3 está fuera de [-1, 1]. Revisa R3, R2 o d2.'
@@ -88,43 +85,50 @@ export class ServicioGeometriaCurva {
       );
     }
 
-    // Tangentes simples T_i = R_i * tan(delta_i / 2)
     const tangente1 = radio1 * Math.tan(angulo1Rad / 2);
     const tangente2 = radio2 * Math.tan(angulo2Rad / 2);
     const tangente3 = radio3 * Math.tan(angulo3Rad / 2);
 
-    // Longitudes de arco L_i = R_i * delta_i (en radianes, equivalente a pi * R * delta / 180)
     const longitudArco1 = radio1 * angulo1Rad;
     const longitudArco2 = radio2 * angulo2Rad;
     const longitudArco3 = radio3 * angulo3Rad;
     const longitudTotalCurva = longitudArco1 + longitudArco2 + longitudArco3;
 
-    const puntosEje = this.generarPuntosRecorrido(
-      parametros,
-      signoGiro,
-      radio1,
-      radio2,
-      radio3,
-      angulo1Rad,
-      angulo2Rad,
-      angulo3Rad
-    );
+    const anchoCalzadaEfectivo = Math.max(4.4, parametros.anchoCalzadaMetros);
+    const anchoCarrilEfectivo = anchoCalzadaEfectivo / 2;
 
-    const mitadAncho = parametros.anchoCalzadaMetros / 2;
-    const puntosBordeIzquierdo = this.generarOffsetParalelo(puntosEje, mitadAncho);
-    const puntosBordeDerecho = this.generarOffsetParalelo(puntosEje, -mitadAncho);
+    const parametrosEfectivos: ParametrosCurva = {
+      ...parametros,
+      anchoCalzadaMetros: anchoCalzadaEfectivo,
+      anchoCarrilMetros: anchoCarrilEfectivo
+    };
 
-    const puntosBordeInterno =
-      parametros.sentidoGiro === 'derecha' ? puntosBordeDerecho : puntosBordeIzquierdo;
-    const puntosBordeExterno =
-      parametros.sentidoGiro === 'derecha' ? puntosBordeIzquierdo : puntosBordeDerecho;
+    // La ruta base se alinea al centro del anillo/calzada de 2 carriles
+    const puntosBaseRuta = this.generarPuntosRutaOvalo(parametrosEfectivos);
 
-    const longitudTotalRecorrido =
-      parametros.longitudTramoRectoMetros * 2 + longitudTotalCurva;
+    // Cada calzada tiene 2 carriles: offset desde el centro de la calzada (-0.5 * carril y +0.5 * carril)
+    const offsetCentroCarril1 = -anchoCarrilEfectivo * 0.5;
+    const offsetCentroCarril2 = anchoCarrilEfectivo * 0.5;
+
+    const puntosCarril1 = this.generarOffsetParalelo(puntosBaseRuta, offsetCentroCarril1);
+    const puntosCarril2 = this.generarOffsetParalelo(puntosBaseRuta, offsetCentroCarril2);
+
+    // El vehículo circula por el centro del carril seleccionado (1 o 2)
+    const puntosEje =
+      parametros.carrilSeleccionado === 1 ? puntosCarril1 : puntosCarril2;
+
+    const mitadCalzada = anchoCalzadaEfectivo / 2;
+    const puntosBordeInterno = this.generarOffsetParalelo(puntosBaseRuta, -mitadCalzada);
+    const puntosBordeExterno = this.generarOffsetParalelo(puntosBaseRuta, mitadCalzada);
+
+    const { franjasViales, contornoIsletaCentral } =
+      this.generarEscenaOvaloMetropolitana(parametrosEfectivos);
+
+    const longitudTotalRecorrido = this.calcularLongitudPolilinea(puntosEje);
 
     return {
       esValida: true,
-      mensajeValidacion: 'Geometría válida según parámetros del Capítulo 4.',
+      mensajeValidacion: 'Óvalo y geometría válidos según parámetros del Capítulo 4.',
       observacionesLibro,
       angulo1Grados: this.radianesAGrados(angulo1Rad),
       angulo2Grados: this.radianesAGrados(angulo2Rad),
@@ -138,38 +142,82 @@ export class ServicioGeometriaCurva {
       longitudTotalCurvaMetros: longitudTotalCurva,
       longitudTotalRecorridoMetros: longitudTotalRecorrido,
       puntosEje,
+      puntosCarril1,
+      puntosCarril2,
       puntosBordeInterno,
-      puntosBordeExterno
+      puntosBordeExterno,
+      franjasViales,
+      contornoIsletaCentral
     };
   }
 
-  /**
-   * Ajusta el radio principal R2 al radio mínimo de giro del vehículo y asegura
-   * al menos el ancho del vehículo más la separación de seguridad del libro (0.60 m por lado).
-   */
   public ajustarParametrosAVehiculo(
     actuales: ParametrosCurva,
     vehiculo: EspecificacionVehiculo
   ): ParametrosCurva {
-    const radio2Ajustado = Number(Math.max(4.5, vehiculo.radioMinimoGiroMetros).toFixed(1));
     const holguraPorLado = Math.max(
       this.separacionSeguridadLibroMetros,
       vehiculo.holguraSeguridadMetros
     );
-    const anchoMinimoLibro = Number(
-      (vehiculo.anchoMetros + holguraPorLado * 2).toFixed(2)
-    );
-    const anchoCalzadaAjustado = Math.max(actuales.anchoCalzadaMetros, anchoMinimoLibro);
 
-    const radio1Ajustado = Number(Math.max(actuales.radio1Metros, radio2Ajustado + 6).toFixed(1));
-    const radio3Ajustado = Number(Math.max(actuales.radio3Metros, radio2Ajustado + 6).toFixed(1));
+    const esVehiculoLargo =
+      vehiculo.largoMetros >= 9 ||
+      vehiculo.categoria === 'Articulado' ||
+      vehiculo.categoria === 'Bus' ||
+      vehiculo.categoria === 'Camión Rígido';
+
+    const factorBarridoCurva =
+      vehiculo.categoria === 'Articulado'
+        ? 0.9
+        : esVehiculoLargo
+          ? 0.45
+          : 0;
+
+    const anchoCarrilCalculado = Number(
+      Math.max(
+        3.6,
+        vehiculo.anchoMetros + holguraPorLado * 2 + factorBarridoCurva
+      ).toFixed(2)
+    );
+    const anchoCalzadaCalculada = Number((anchoCarrilCalculado * 2).toFixed(2));
+
+    const radio2Ajustado = Number(
+      Math.max(6.0, vehiculo.radioMinimoGiroMetros).toFixed(1)
+    );
+    const margenRadiosCompuestos = esVehiculoLargo ? 12 : 8;
+    const radio1Ajustado = Number(
+      Math.max(actuales.radio1Metros, radio2Ajustado + margenRadiosCompuestos).toFixed(1)
+    );
+    const radio3Ajustado = Number(
+      Math.max(actuales.radio3Metros, radio2Ajustado + margenRadiosCompuestos).toFixed(1)
+    );
+
+    const semiejeXAjustado = Number(
+      Math.max(
+        18,
+        radio2Ajustado * (esVehiculoLargo ? 3.2 : 2.8) +
+          vehiculo.largoMetros * (esVehiculoLargo ? 1.3 : 1.0) +
+          anchoCalzadaCalculada
+      ).toFixed(1)
+    );
+    const semiejeYAjustado = Number(
+      Math.max(
+        14,
+        radio2Ajustado * (esVehiculoLargo ? 2.4 : 2.0) +
+          vehiculo.largoMetros * (esVehiculoLargo ? 1.0 : 0.8) +
+          anchoCalzadaCalculada
+      ).toFixed(1)
+    );
 
     return {
       ...actuales,
+      anchoCarrilMetros: anchoCarrilCalculado,
+      anchoCalzadaMetros: anchoCalzadaCalculada,
       radio1Metros: radio1Ajustado,
       radio2Metros: radio2Ajustado,
       radio3Metros: radio3Ajustado,
-      anchoCalzadaMetros: anchoCalzadaAjustado
+      semiejeXMetros: semiejeXAjustado,
+      semiejeYMetros: semiejeYAjustado
     };
   }
 
@@ -186,10 +234,16 @@ export class ServicioGeometriaCurva {
         mensaje: 'El radio R2 debe ser mayor a 0 m.'
       };
     }
-    if (p.anchoCalzadaMetros < this.separacionSeguridadLibroMetros * 2) {
+    if (p.anchoCalzadaMetros < 4.4 || p.anchoCarrilMetros < 2.2) {
       return {
         esValida: false,
-        mensaje: `El ancho de calzada debe permitir al menos ${this.separacionSeguridadLibroMetros * 2} m de separación lateral mínima.`
+        mensaje: 'El ancho de calzada debe ser al menos de 4.4 m (2.2 m por carril).'
+      };
+    }
+    if (p.semiejeXMetros < 12 || p.semiejeYMetros < 10) {
+      return {
+        esValida: false,
+        mensaje: 'Las dimensiones del óvalo son demasiado pequeñas para maniobras seguras.'
       };
     }
     return { esValida: true, mensaje: '' };
@@ -212,86 +266,187 @@ export class ServicioGeometriaCurva {
       longitudTotalCurvaMetros: 0,
       longitudTotalRecorridoMetros: 0,
       puntosEje: [],
+      puntosCarril1: [],
+      puntosCarril2: [],
       puntosBordeInterno: [],
-      puntosBordeExterno: []
+      puntosBordeExterno: [],
+      franjasViales: [],
+      contornoIsletaCentral: []
     };
   }
 
-  private generarPuntosRecorrido(
-    p: ParametrosCurva,
-    signoGiro: number,
-    r1: number,
-    r2: number,
-    r3: number,
-    a1: number,
-    a2: number,
-    a3: number
+  private generarPuntosRutaOvalo(p: ParametrosCurva): Punto2D[] {
+    const rx = p.semiejeXMetros;
+    const ry = p.semiejeYMetros;
+    const extensionAcceso = Math.max(24, p.longitudTramoRectoMetros * 1.6);
+
+    switch (p.rutaOvalo) {
+      case 'ovalo-perimetral': {
+        const puntos: Punto2D[] = [];
+        const pasos = 140;
+        const direccion = p.sentidoGiro === 'derecha' ? -1 : 1;
+        for (let i = 0; i <= pasos; i++) {
+          const t = (i / pasos) * Math.PI * 2 * direccion;
+          puntos.push({
+            x: rx * Math.cos(t),
+            y: ry * Math.sin(t)
+          });
+        }
+        return puntos;
+      }
+
+      case 'sur-a-norte': {
+        return this.muestrearSegmentos([
+          { x: 0, y: -(ry + extensionAcceso) },
+          { x: 0, y: -(ry * 0.45) },
+          { x: 0, y: ry * 0.45 },
+          { x: 0, y: ry + extensionAcceso }
+        ]);
+      }
+
+      case 'norte-a-sur': {
+        return this.muestrearSegmentos([
+          { x: 0, y: ry + extensionAcceso },
+          { x: 0, y: ry * 0.45 },
+          { x: 0, y: -(ry * 0.45) },
+          { x: 0, y: -(ry + extensionAcceso) }
+        ]);
+      }
+
+      case 'oeste-a-este': {
+        return this.muestrearSegmentos([
+          { x: -(rx + extensionAcceso), y: 0 },
+          { x: -(rx * 0.45), y: 0 },
+          { x: rx * 0.45, y: 0 },
+          { x: rx + extensionAcceso, y: 0 }
+        ]);
+      }
+
+      case 'este-a-oeste': {
+        return this.muestrearSegmentos([
+          { x: rx + extensionAcceso, y: 0 },
+          { x: rx * 0.45, y: 0 },
+          { x: -(rx * 0.45), y: 0 },
+          { x: -(rx + extensionAcceso), y: 0 }
+        ]);
+      }
+    }
+  }
+
+  private generarEscenaOvaloMetropolitana(p: ParametrosCurva): {
+    franjasViales: Punto2D[][];
+    contornoIsletaCentral: Punto2D[];
+  } {
+    const rx = p.semiejeXMetros;
+    const ry = p.semiejeYMetros;
+    const anchoDosCarriles = p.anchoCalzadaMetros;
+    const separacionSentidos = Math.max(4.5, p.anchoCarrilMetros * 1.4);
+    const extensionAcceso = Math.max(24, p.longitudTramoRectoMetros * 1.6);
+
+    const franjasViales: Punto2D[][] = [];
+
+    const xSubida = separacionSentidos / 2 + anchoDosCarriles / 2;
+    const xBajada = -(separacionSentidos / 2 + anchoDosCarriles / 2);
+
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        xSubida - anchoDosCarriles / 2,
+        -(ry + extensionAcceso),
+        anchoDosCarriles,
+        (ry + extensionAcceso) * 2
+      )
+    );
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        xBajada - anchoDosCarriles / 2,
+        -(ry + extensionAcceso),
+        anchoDosCarriles,
+        (ry + extensionAcceso) * 2
+      )
+    );
+
+    const yDerecha = -(separacionSentidos / 2 + anchoDosCarriles / 2);
+    const yIzquierda = separacionSentidos / 2 + anchoDosCarriles / 2;
+
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        -(rx + extensionAcceso),
+        yDerecha - anchoDosCarriles / 2,
+        (rx + extensionAcceso) * 2,
+        anchoDosCarriles
+      )
+    );
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        -(rx + extensionAcceso),
+        yIzquierda - anchoDosCarriles / 2,
+        (rx + extensionAcceso) * 2,
+        anchoDosCarriles
+      )
+    );
+
+    const anilloExterno: Punto2D[] = [];
+    const anilloInterno: Punto2D[] = [];
+    const pasos = 120;
+    const rxInt = Math.max(6, rx - anchoDosCarriles / 2);
+    const ryInt = Math.max(5, ry - anchoDosCarriles / 2);
+    const rxExt = rx + anchoDosCarriles / 2;
+    const ryExt = ry + anchoDosCarriles / 2;
+
+    for (let i = 0; i <= pasos; i++) {
+      const ang = (i / pasos) * Math.PI * 2;
+      anilloExterno.push({ x: rxExt * Math.cos(ang), y: ryExt * Math.sin(ang) });
+      anilloInterno.push({ x: rxInt * Math.cos(ang), y: ryInt * Math.sin(ang) });
+    }
+    franjasViales.push([...anilloExterno, ...anilloInterno.reverse()]);
+
+    const contornoIsletaCentral: Punto2D[] = [];
+    const rxIsleta = Math.max(4, rxInt - 2.5);
+    const ryIsleta = Math.max(3.5, ryInt - 2.5);
+    for (let i = 0; i <= pasos; i++) {
+      const ang = (i / pasos) * Math.PI * 2;
+      contornoIsletaCentral.push({
+        x: rxIsleta * Math.cos(ang),
+        y: ryIsleta * Math.sin(ang)
+      });
+    }
+
+    return { franjasViales, contornoIsletaCentral };
+  }
+
+  private crearRectanguloFranja(
+    x: number,
+    y: number,
+    ancho: number,
+    alto: number
   ): Punto2D[] {
-    const puntos: Punto2D[] = [];
+    return [
+      { x, y },
+      { x: x + ancho, y },
+      { x: x + ancho, y: y + alto },
+      { x, y: y + alto }
+    ];
+  }
 
-    let xActual = 0;
-    let yActual = 0;
-    let rumboRad = 0;
-
-    puntos.push({ x: xActual, y: yActual });
-
-    const pasosEntrada = Math.max(
-      1,
-      Math.ceil(p.longitudTramoRectoMetros / this.pasoDiscretizacionMetros)
-    );
-    const pasoEntradaReal = p.longitudTramoRectoMetros / pasosEntrada;
-    for (let i = 1; i <= pasosEntrada; i++) {
-      xActual += pasoEntradaReal * Math.cos(rumboRad);
-      yActual += pasoEntradaReal * Math.sin(rumboRad);
-      puntos.push({ x: xActual, y: yActual });
+  private muestrearSegmentos(nodos: Punto2D[]): Punto2D[] {
+    if (nodos.length < 2) {
+      return [...nodos];
     }
-
-    const agregarArco = (radioArco: number, deltaArcoRad: number): void => {
-      if (deltaArcoRad <= 0.0001 || radioArco <= 0.01) {
-        return;
+    const resultado: Punto2D[] = [{ ...nodos[0] }];
+    for (let i = 1; i < nodos.length; i++) {
+      const a = nodos[i - 1];
+      const b = nodos[i];
+      const dist = Math.hypot(b.x - a.x, b.y - a.y);
+      const pasos = Math.max(1, Math.ceil(dist / this.pasoDiscretizacionMetros));
+      for (let s = 1; s <= pasos; s++) {
+        const t = s / pasos;
+        resultado.push({
+          x: a.x + (b.x - a.x) * t,
+          y: a.y + (b.y - a.y) * t
+        });
       }
-      const longitudArco = radioArco * deltaArcoRad;
-      const pasos = Math.max(
-        2,
-        Math.ceil(longitudArco / this.pasoDiscretizacionMetros)
-      );
-      const pasoAngulo = (deltaArcoRad / pasos) * signoGiro;
-
-      const anguloAlCentro = rumboRad + signoGiro * (Math.PI / 2);
-      const cx = xActual + radioArco * Math.cos(anguloAlCentro);
-      const cy = yActual + radioArco * Math.sin(anguloAlCentro);
-
-      let anguloDesdeCentro = Math.atan2(yActual - cy, xActual - cx);
-
-      for (let i = 1; i <= pasos; i++) {
-        anguloDesdeCentro += pasoAngulo;
-        xActual = cx + radioArco * Math.cos(anguloDesdeCentro);
-        yActual = cy + radioArco * Math.sin(anguloDesdeCentro);
-        rumboRad += pasoAngulo;
-        puntos.push({ x: xActual, y: yActual });
-      }
-    };
-
-    if (p.tipoCurva === 'simple') {
-      agregarArco(r2, a2);
-    } else {
-      agregarArco(r1, a1);
-      agregarArco(r2, a2);
-      agregarArco(r3, a3);
     }
-
-    const pasosSalida = Math.max(
-      1,
-      Math.ceil(p.longitudTramoRectoMetros / this.pasoDiscretizacionMetros)
-    );
-    const pasoSalidaReal = p.longitudTramoRectoMetros / pasosSalida;
-    for (let i = 1; i <= pasosSalida; i++) {
-      xActual += pasoSalidaReal * Math.cos(rumboRad);
-      yActual += pasoSalidaReal * Math.sin(rumboRad);
-      puntos.push({ x: xActual, y: yActual });
-    }
-
-    return puntos;
+    return resultado;
   }
 
   private generarOffsetParalelo(puntos: Punto2D[], offsetMetros: number): Punto2D[] {
@@ -317,6 +472,14 @@ export class ServicioGeometriaCurva {
     }
 
     return resultado;
+  }
+
+  private calcularLongitudPolilinea(puntos: Punto2D[]): number {
+    let total = 0;
+    for (let i = 1; i < puntos.length; i++) {
+      total += Math.hypot(puntos[i].x - puntos[i - 1].x, puntos[i].y - puntos[i - 1].y);
+    }
+    return total;
   }
 
   private gradosARadianes(grados: number): number {

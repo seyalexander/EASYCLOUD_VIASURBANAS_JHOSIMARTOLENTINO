@@ -4,16 +4,36 @@ export type SentidoGiro = 'derecha' | 'izquierda';
 /** Tipo de geometría de curva a calcular */
 export type TipoCurva = 'simple' | 'compuesta-3-radios';
 
+/** Acceso o recorrido disponible en el óvalo de Av. Metropolitana */
+export type RutaOvalo =
+  | 'ovalo-perimetral'
+  | 'sur-a-norte'
+  | 'norte-a-sur'
+  | 'oeste-a-este'
+  | 'este-a-oeste';
+
+/** Carril seleccionado dentro de una calzada de 2 carriles por sentido */
+export type NumeroCarril = 1 | 2;
+
 /** Punto cartesiano en metros dentro del sistema de coordenadas del simulador */
 export interface Punto2D {
   x: number;
   y: number;
 }
 
-/** Parámetros configurables de la curva o retorno vial */
+/** Parámetros configurables de la curva, óvalo o retorno vial */
 export interface ParametrosCurva {
   tipoCurva: TipoCurva;
   sentidoGiro: SentidoGiro;
+  /** Ruta o acceso seleccionado en el óvalo de Av. Metropolitana */
+  rutaOvalo: RutaOvalo;
+  /** Carril activo (1 = carril interior/izquierdo del sentido, 2 = carril exterior/derecho) */
+  carrilSeleccionado: NumeroCarril;
+  /** Ancho de cada carril en metros (ej. 3.60 m) */
+  anchoCarrilMetros: number;
+  /** Semieje horizontal (X) y vertical (Y) del óvalo en metros */
+  semiejeXMetros: number;
+  semiejeYMetros: number;
   /** Ángulo de deflexión total en grados sexagesimales (ej. 90 o 180) */
   anguloDeflexionGrados: number;
   /** Radio inicial R1 en metros */
@@ -32,38 +52,33 @@ export interface ParametrosCurva {
   longitudTramoRectoMetros: number;
 }
 
-/** Resultados geométricos calculados para la curva según el Capítulo 4 del libro */
+/** Resultados geométricos calculados para el óvalo y la curva */
 export interface ResultadoGeometriaCurva {
   esValida: boolean;
   mensajeValidacion: string;
-  /** Observaciones normativas o de validación (ej. separación mínima de 0.60 m) */
   observacionesLibro: string[];
-  /** Ángulo central del primer tramo en grados */
   angulo1Grados: number;
-  /** Ángulo central del tramo intermedio en grados */
   angulo2Grados: number;
-  /** Ángulo central del tercer tramo en grados */
   angulo3Grados: number;
-  /** Tangente simple T1 = R1 * tan(delta1 / 2) en metros */
   tangente1Metros: number;
-  /** Tangente simple T2 = R2 * tan(delta2 / 2) en metros */
   tangente2Metros: number;
-  /** Tangente simple T3 = R3 * tan(delta3 / 2) en metros */
   tangente3Metros: number;
-  /** Longitud de arco del tramo 1 en metros */
   longitudArco1Metros: number;
-  /** Longitud de arco del tramo 2 en metros */
   longitudArco2Metros: number;
-  /** Longitud de arco del tramo 3 en metros */
   longitudArco3Metros: number;
-  /** Longitud total de la curva en metros */
   longitudTotalCurvaMetros: number;
-  /** Longitud total del recorrido (recta entrada + curva + recta salida) en metros */
   longitudTotalRecorridoMetros: number;
-  /** Puntos muestreados del eje/trayectoria base a lo largo de todo el recorrido */
+  /** Trayectoria activa del carril elegido para el vehículo */
   puntosEje: Punto2D[];
-  /** Puntos del borde interno de la calzada */
+  /** Trayectoria del carril 1 */
+  puntosCarril1: Punto2D[];
+  /** Trayectoria del carril 2 */
+  puntosCarril2: Punto2D[];
+  /** Bordes del corredor activo */
   puntosBordeInterno: Punto2D[];
-  /** Puntos del borde externo de la calzada */
   puntosBordeExterno: Punto2D[];
+  /** Múltiples franjas viales del óvalo (2 carriles en vertical y 2 en horizontal + óvalo) */
+  franjasViales: Punto2D[][];
+  /** Contorno de la isleta central del óvalo */
+  contornoIsletaCentral: Punto2D[];
 }

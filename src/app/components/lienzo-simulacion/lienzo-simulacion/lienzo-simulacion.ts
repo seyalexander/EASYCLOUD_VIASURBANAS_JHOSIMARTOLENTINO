@@ -76,7 +76,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
 
     ctx.clearRect(0, 0, anchoCanvas, altoCanvas);
 
-    ctx.fillStyle = '#e2e8f0';
+    ctx.fillStyle = '#e8efe8';
     ctx.fillRect(0, 0, anchoCanvas, altoCanvas);
 
     const geom = this.geometria();
@@ -87,8 +87,11 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       return;
     }
 
+    const puntosReferenciaEscala =
+      geom.franjasViales.length > 0 ? geom.franjasViales.flat() : geom.puntosEje;
+
     const transformacion = this.calcularEscalaYOffset(
-      geom.puntosEje,
+      puntosReferenciaEscala,
       anchoCanvas,
       altoCanvas
     );
@@ -98,21 +101,54 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       y: transformacion.offsetY - pt.y * transformacion.escalaPxPorMetro
     });
 
-    this.dibujarSuperficieCalzada(
-      ctx,
-      geom.puntosBordeInterno,
-      geom.puntosBordeExterno,
-      aPantalla
-    );
+    // 1. Relleno continuo de franjas viales sin cortes de borde internos
+    for (const franja of geom.franjasViales) {
+      this.dibujarPoligonoRelleno(ctx, franja, aPantalla, '#1e293b', null, 0);
+    }
+    for (const franja of geom.franjasViales) {
+      if (franja.length > 2) {
+        this.dibujarPolilinea(
+          ctx,
+          [...franja, franja[0]],
+          aPantalla,
+          'rgba(248, 250, 252, 0.35)',
+          1.2
+        );
+      }
+    }
 
-    this.dibujarPolilinea(ctx, geom.puntosBordeInterno, aPantalla, '#f8fafc', 2.5);
-    this.dibujarPolilinea(ctx, geom.puntosBordeExterno, aPantalla, '#f8fafc', 2.5);
+    // 2. Isleta central del óvalo
+    if (geom.contornoIsletaCentral.length > 2) {
+      this.dibujarPoligonoRelleno(
+        ctx,
+        geom.contornoIsletaCentral,
+        aPantalla,
+        '#4d7c0f',
+        '#ecfccb',
+        2.2
+      );
+    }
 
+    // 3. Líneas punteadas centradas en cada carril
     ctx.save();
-    ctx.setLineDash([10, 8]);
-    this.dibujarPolilinea(ctx, geom.puntosEje, aPantalla, '#f59e0b', 2);
+    ctx.setLineDash([7, 7]);
+    this.dibujarPolilinea(
+      ctx,
+      geom.puntosCarril1,
+      aPantalla,
+      'rgba(255, 255, 255, 0.55)',
+      1.4
+    );
+    this.dibujarPolilinea(
+      ctx,
+      geom.puntosCarril2,
+      aPantalla,
+      'rgba(255, 255, 255, 0.55)',
+      1.4
+    );
     ctx.restore();
 
+    // 4. Vehículo circulando en su carril
     this.dibujarVehiculo(ctx, aPantalla, transformacion.escalaPxPorMetro);
   }
 
@@ -133,13 +169,13 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       if (p.y > maxY) maxY = p.y;
     }
 
-    const margen = 70;
-    const anchoMundo = Math.max(10, maxX - minX + 12);
-    const altoMundo = Math.max(10, maxY - minY + 12);
+    const margen = 45;
+    const anchoMundo = Math.max(10, maxX - minX + 8);
+    const altoMundo = Math.max(10, maxY - minY + 8);
 
     const escalaX = (anchoCanvas - margen * 2) / anchoMundo;
     const escalaY = (altoCanvas - margen * 2) / altoMundo;
-    const escala = Math.max(4, Math.min(28, Math.min(escalaX, escalaY)));
+    const escala = Math.max(2.5, Math.min(28, Math.min(escalaX, escalaY)));
 
     const centroMundoX = (minX + maxX) / 2;
     const centroMundoY = (minY + maxY) / 2;
@@ -151,34 +187,33 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     };
   }
 
-  private dibujarSuperficieCalzada(
+  private dibujarPoligonoRelleno(
     ctx: CanvasRenderingContext2D,
-    bordeA: Punto2D[],
-    bordeB: Punto2D[],
-    aPantalla: (pt: Punto2D) => Punto2D
+    puntos: Punto2D[],
+    aPantalla: (pt: Punto2D) => Punto2D,
+    colorRelleno: string,
+    colorBorde: string | null,
+    grosorBorde: number
   ): void {
-    if (bordeA.length < 2 || bordeB.length < 2) {
+    if (puntos.length < 3) {
       return;
     }
-
     ctx.save();
     ctx.beginPath();
-    const primeroA = aPantalla(bordeA[0]);
-    ctx.moveTo(primeroA.x, primeroA.y);
-
-    for (let i = 1; i < bordeA.length; i++) {
-      const pt = aPantalla(bordeA[i]);
+    const primero = aPantalla(puntos[0]);
+    ctx.moveTo(primero.x, primero.y);
+    for (let i = 1; i < puntos.length; i++) {
+      const pt = aPantalla(puntos[i]);
       ctx.lineTo(pt.x, pt.y);
     }
-
-    for (let i = bordeB.length - 1; i >= 0; i--) {
-      const pt = aPantalla(bordeB[i]);
-      ctx.lineTo(pt.x, pt.y);
-    }
-
     ctx.closePath();
-    ctx.fillStyle = '#1e293b';
+    ctx.fillStyle = colorRelleno;
     ctx.fill();
+    if (colorBorde && grosorBorde > 0) {
+      ctx.strokeStyle = colorBorde;
+      ctx.lineWidth = grosorBorde;
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -231,11 +266,11 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     const xInicioCarroceria = -vueloTraseroPx;
     const yInicioCarroceria = -anchoPx / 2;
 
-    let colorCarroceria = '#0f766e';
+    let colorCarroceria = '#005FAE';
     if (post.estadoHolgura === 'ajuste') {
-      colorCarroceria = '#d97706';
+      colorCarroceria = '#EE8600';
     } else if (post.estadoHolgura === 'invasion') {
-      colorCarroceria = '#dc2626';
+      colorCarroceria = '#F04C4D';
     }
 
     ctx.fillStyle = colorCarroceria;
@@ -246,7 +281,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.fillRect(xInicioCarroceria + largoPx - 6, yInicioCarroceria + 2, 4, anchoPx - 4);
 
     const largoRuedaPx = Math.max(6, 0.65 * escalaPxPorMetro);

@@ -1,4 +1,4 @@
-import { Punto2D } from './modelo-curva';
+import { NumeroCarril, Punto2D } from './modelo-curva';
 
 /** Modo de control de movimiento del vehículo */
 export type ModoMovimiento = 'automatico' | 'manual';
@@ -23,5 +23,19 @@ export interface PosturaVehiculo {
   /** Estado de holgura respecto al borde de la calzada */
   estadoHolgura: EstadoHolgura;
   /** Menor distancia estimada entre el vehículo y los bordes de calzada en metros */
+  distanciaMinimaBordeMetros: number;
+}
+
+
+
+export interface PosturaVehiculo {
+  distanciaRecorridaMetros: number;
+  progreso: number;
+  carril: NumeroCarril;
+  posicionEjeTrasero: Punto2D;
+  anguloCarroceriaRad: number;
+  anguloDireccionRuedasRad: number;
+  esquinasCarroceria: Punto2D[];
+  estadoHolgura: EstadoHolgura;
   distanciaMinimaBordeMetros: number;
 }

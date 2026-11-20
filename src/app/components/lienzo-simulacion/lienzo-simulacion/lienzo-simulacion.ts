@@ -101,10 +101,22 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       y: transformacion.offsetY - pt.y * transformacion.escalaPxPorMetro
     });
 
-    // 1. Relleno continuo de franjas viales sin cortes de borde internos
-    for (const franja of geom.franjasViales) {
+    // 1. Vías rectas transversales (arriba-abajo e izquierda-derecha)
+    const franjasRectas = geom.franjasViales.slice(0, -1);
+    const franjaAnillo =
+      geom.franjasViales.length > 4
+        ? geom.franjasViales[geom.franjasViales.length - 1]
+        : null;
+
+    for (const franja of franjasRectas) {
       this.dibujarPoligonoRelleno(ctx, franja, aPantalla, '#1e293b', null, 0);
     }
+
+    // 2. Anillo del óvalo (sin isleta central verde)
+    if (franjaAnillo) {
+      this.dibujarPoligonoRelleno(ctx, franjaAnillo, aPantalla, '#1e293b', null, 0);
+    }
+
     for (const franja of geom.franjasViales) {
       if (franja.length > 2) {
         this.dibujarPolilinea(
@@ -115,18 +127,6 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
           1.2
         );
       }
-    }
-
-    // 2. Isleta central del óvalo
-    if (geom.contornoIsletaCentral.length > 2) {
-      this.dibujarPoligonoRelleno(
-        ctx,
-        geom.contornoIsletaCentral,
-        aPantalla,
-        '#4d7c0f',
-        '#ecfccb',
-        2.2
-      );
     }
 
     // 3. Líneas punteadas centradas en cada carril

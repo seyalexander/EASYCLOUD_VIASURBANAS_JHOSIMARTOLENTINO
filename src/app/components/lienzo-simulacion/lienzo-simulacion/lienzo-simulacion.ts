@@ -5,7 +5,8 @@ import {
   OnChanges,
   SimpleChanges,
   ViewChild,
-  input} from '@angular/core';
+  input
+} from '@angular/core';
 import { Punto2D, ResultadoGeometriaCurva } from '../../../core/modelos/modelo-curva';
 import { EspecificacionVehiculo } from '../../../core/modelos/modelo-vehiculos';
 import { PosturaVehiculo } from '../../../core/modelos/modelo-simulacion';
@@ -111,12 +112,11 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     const franjaAnillo =
       geom.franjasViales.length > 4 ? geom.franjasViales[4] : null;
 
-    // 1. Vías horizontales de acceso
+    // 1. Vías horizontales y sus líneas punteadas de carril
     for (const viaX of viasHorizontales) {
       this.dibujarPoligonoRelleno(ctx, viaX, aPantalla, colorAsfalto, null, 0);
     }
 
-    // 2. Líneas punteadas en vías horizontales
     ctx.save();
     ctx.setLineDash([7, 7]);
     for (const viaX of viasHorizontales) {
@@ -124,9 +124,9 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     }
     ctx.restore();
 
-    // 3. Recorte limpio dentro del óvalo para anular el paso horizontal interno (incluyendo el centro)
-    if (franjaAnillo && viasVerticales.length >= 2 && viasHorizontales.length >= 2) {
-      this.recortarInteriorOvaloCompleto(
+    // 2. Limpiar zona interior del óvalo (anular paso horizontal interno y borrar líneas horizontales sobrantes)
+    if (franjaAnillo && viasHorizontales.length >= 2) {
+      this.limpiarInteriorOvalo(
         ctx,
         franjaAnillo,
         viasHorizontales,
@@ -136,7 +136,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       );
     }
 
-    // 4. Vías verticales continuas de arriba a abajo con sus 2 carriles punteados
+    // 3. Vías verticales continuas de arriba a abajo con sus 2 carriles punteados
     for (const viaY of viasVerticales) {
       this.dibujarPoligonoRelleno(ctx, viaY, aPantalla, colorAsfalto, null, 0);
     }
@@ -148,7 +148,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     }
     ctx.restore();
 
-    // 5. Anillo del óvalo y sus 2 líneas punteadas de carril encima para borde curvo limpio
+    // 4. Anillo del óvalo y sus 2 líneas punteadas de carril encima para borde curvo limpio
     if (franjaAnillo) {
       this.dibujarPoligonoRelleno(ctx, franjaAnillo, aPantalla, colorAsfalto, null, 0);
     }
@@ -159,11 +159,11 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     this.dibujarPolilinea(ctx, geom.puntosCarril2, aPantalla, colorLineaCarril, 1.4);
     ctx.restore();
 
-    // 6. Vehículo circulando en su carril
+    // 5. Vehículo circulando en su carril
     this.dibujarVehiculo(ctx, aPantalla, transformacion.escalaPxPorMetro);
   }
 
-  private recortarInteriorOvaloCompleto(
+  private limpiarInteriorOvalo(
     ctx: CanvasRenderingContext2D,
     franjaAnillo: Punto2D[],
     viasHorizontales: Punto2D[][],
@@ -184,21 +184,23 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     const pCarril1 = this.geometria().puntosCarril1[0];
     const pCarril2 = this.geometria().puntosCarril2[0];
     const anchoCarril =
-      pCarril1 && pCarril2 ? Math.hypot(pCarril2.x - pCarril1.x, pCarril2.y - pCarril1.y) : 3.6;
+      pCarril1 && pCarril2
+        ? Math.hypot(pCarril2.x - pCarril1.x, pCarril2.y - pCarril1.y)
+        : 3.6;
     const anchoCalzada = Math.max(4.4, anchoCarril * 2);
 
-    const rxInt = Math.max(4, rxExt - anchoCalzada);
-    const ryInt = Math.max(3, ryExt - anchoCalzada);
+    // Ajuste fino para no dejar líneas residuales en los bordes superior/inferior del recorte
+    const rxInt = Math.max(4, rxExt - anchoCalzada - 0.15);
+    const ryInt = Math.max(3, ryExt - anchoCalzada - 0.15);
 
     const centroPx = aPantalla({ x: 0, y: 0 });
     const rxIntPx = rxInt * escalaPxPorMetro;
     const ryIntPx = ryInt * escalaPxPorMetro;
 
     const ysHoriz = viasHorizontales.flat().map((p) => p.y);
-    const minYHoriz = Math.min(...ysHoriz);
-    const maxYHoriz = Math.max(...ysHoriz);
+    const minYHoriz = Math.min(...ysHoriz) - 0.2;
+    const maxYHoriz = Math.max(...ysHoriz) + 0.2;
 
-    // Cubre de lado a lado dentro de la elipse interior, sin dejar líneas finas en los bordes
     const rectInterior: Punto2D[] = [
       { x: -rxInt, y: minYHoriz },
       { x: rxInt, y: minYHoriz },

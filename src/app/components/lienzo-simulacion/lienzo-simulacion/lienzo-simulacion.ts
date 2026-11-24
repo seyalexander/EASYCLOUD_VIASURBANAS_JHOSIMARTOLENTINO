@@ -5,11 +5,13 @@ import {
   OnChanges,
   SimpleChanges,
   ViewChild,
-  input } from '@angular/core';
+  input
+} from '@angular/core';
 import { Punto2D, ResultadoGeometriaCurva } from '../../../core/modelos/modelo-curva';
 import { EspecificacionVehiculo } from '../../../core/modelos/modelo-vehiculos';
 import {
   PosturaVehiculo,
+  SemaforoInterseccion,
   VehiculoEnEscena
 } from '../../../core/modelos/modelo-simulacion';
 
@@ -28,6 +30,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
   public readonly postura = input.required<PosturaVehiculo>();
   public readonly catalogoVehiculos = input<readonly EspecificacionVehiculo[]>([]);
   public readonly vehiculosEnEscena = input<readonly VehiculoEnEscena[]>([]);
+  public readonly semaforos = input<readonly SemaforoInterseccion[]>([]);
 
   private vistaLista = false;
 
@@ -205,6 +208,65 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
         transformacion.escalaPxPorMetro
       );
     }
+
+    // 7. Semáforos en el óvalo e intersecciones
+    for (const sem of this.semaforos()) {
+      this.dibujarSemaforo(ctx, sem, aPantalla);
+    }
+  }
+
+  private dibujarSemaforo(
+    ctx: CanvasRenderingContext2D,
+    sem: SemaforoInterseccion,
+    aPantalla: (pt: Punto2D) => Punto2D
+  ): void {
+    const pt = aPantalla(sem.posicion);
+    const colorActivo =
+      sem.estado === 'verde'
+        ? '#76c043'
+        : sem.estado === 'amarillo'
+          ? '#fdd839'
+          : '#f04c4d';
+
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+
+    // Halo del estado activo
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fillStyle = `${colorActivo}33`;
+    ctx.fill();
+
+    // Carcasa del semáforo
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.roundRect(-7, -14, 14, 28, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // Tres luces (rojo arriba, amarillo medio, verde abajo)
+    const luces: { y: number; color: string; activa: boolean }[] = [
+      { y: -8, color: '#f04c4d', activa: sem.estado === 'rojo' },
+      { y: 0, color: '#fdd839', activa: sem.estado === 'amarillo' },
+      { y: 8, color: '#76c043', activa: sem.estado === 'verde' }
+    ];
+
+    for (const luz of luces) {
+      ctx.beginPath();
+      ctx.arc(0, luz.y, 3.1, 0, Math.PI * 2);
+      ctx.fillStyle = luz.activa ? luz.color : 'rgba(148, 163, 184, 0.25)';
+      ctx.fill();
+    }
+
+    // Etiqueta corta
+    ctx.font = '700 9px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#0f172a';
+    ctx.fillText(sem.etiqueta, 0, -18);
+
+    ctx.restore();
   }
 
   private limpiarInteriorOvalo(

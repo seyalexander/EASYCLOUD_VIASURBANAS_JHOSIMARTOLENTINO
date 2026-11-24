@@ -7,6 +7,17 @@ export type ModoTrafico = 'unico' | 'fluido-aleatorio';
 
 export type EstadoHolgura = 'seguro' | 'ajuste' | 'invasion';
 
+export type ColorSemaforo = 'verde' | 'amarillo' | 'rojo';
+
+export interface SemaforoInterseccion {
+  id: string;
+  etiqueta: string;
+  ruta: RutaOvalo;
+  posicion: Punto2D;
+  progresoLineaDetencion: number;
+  estado: ColorSemaforo;
+}
+
 export interface PosturaVehiculo {
   distanciaRecorridaMetros: number;
   progreso: number;
@@ -27,6 +38,7 @@ export interface VehiculoEnEscena {
   progreso: number;
   factorVelocidad: number;
   postura: PosturaVehiculo;
+  detenidoPorSemaforo?: boolean;
 }
 
 export interface ConfiguracionTrafico {

@@ -23,8 +23,10 @@ import {
   RutaOvalo
 } from '../../../../core/modelos/modelo-curva';
 import {
+  ColorSemaforo,
   ConfiguracionTrafico,
   ModoMovimiento,
+  SemaforoInterseccion,
   VehiculoEnEscena
 } from '../../../../core/modelos/modelo-simulacion';
 
@@ -35,6 +37,7 @@ interface EstadoActorInterno {
   carril: NumeroCarril;
   progreso: number;
   factorVelocidad: number;
+  detenidoPorSemaforo?: boolean;
 }
 
 @Component({
@@ -89,6 +92,7 @@ export class PaginaSimulacion implements OnDestroy {
   public readonly estaReproduciendo = signal<boolean>(true);
   public readonly progreso = signal<number>(0);
   public readonly velocidad = signal<number>(1.0);
+  public readonly tiempoCicloSemaforo = signal<number>(0);
 
   private readonly actoresInternos = signal<EstadoActorInterno[]>([
     {
@@ -97,7 +101,8 @@ export class PaginaSimulacion implements OnDestroy {
       ruta: 'ovalo-perimetral',
       carril: 1,
       progreso: 0,
-      factorVelocidad: 1
+      factorVelocidad: 1,
+      detenidoPorSemaforo: false
     }
   ]);
 
@@ -118,6 +123,74 @@ export class PaginaSimulacion implements OnDestroy {
       this.progreso()
     )
   );
+
+  public readonly semaforos = computed<SemaforoInterseccion[]>(() => {
+    const base = this.parametrosCurva();
+    const t = this.tiempoCicloSemaforo();
+    const duracionCiclo = 16;
+    const fase = ((t % duracionCiclo) + duracionCiclo) % duracionCiclo;
+
+    const estadoOvalo: ColorSemaforo =
+      fase < 7 ? 'verde' : fase < 9 ? 'amarillo' : 'rojo';
+
+    const estadoVertical: ColorSemaforo =
+      fase >= 9 && fase < 14.5 ? 'verde' : fase >= 14.5 ? 'amarillo' : 'rojo';
+
+    const anchoDosCarriles = base.anchoCalzadaMetros;
+    const separacionSentidos = Math.max(4.5, base.anchoCarrilMetros * 1.4);
+    const xSurNorte = separacionSentidos / 2 + anchoDosCarriles / 2;
+    const xNorteSur = -(separacionSentidos / 2 + anchoDosCarriles / 2);
+    const yCruce = Math.max(6, base.semiejeYMetros * 0.45);
+
+    const progOvalo1 = 0.22;
+    const progOvalo2 = 0.72;
+    const ptsOvalo = this.geometriaActual().puntosEje;
+    const posOvalo1 =
+      ptsOvalo[Math.min(ptsOvalo.length - 1, Math.floor(progOvalo1 * ptsOvalo.length))] ?? {
+        x: base.semiejeXMetros,
+        y: 0
+      };
+    const posOvalo2 =
+      ptsOvalo[Math.min(ptsOvalo.length - 1, Math.floor(progOvalo2 * ptsOvalo.length))] ?? {
+        x: -base.semiejeXMetros,
+        y: 0
+      };
+
+    return [
+      {
+        id: 'sem-ovalo-1',
+        etiqueta: 'S1 · ÓVALO',
+        ruta: 'ovalo-perimetral',
+        posicion: { x: posOvalo1.x, y: posOvalo1.y },
+        progresoLineaDetencion: progOvalo1,
+        estado: estadoOvalo
+      },
+      {
+        id: 'sem-ovalo-2',
+        etiqueta: 'S2 · ÓVALO',
+        ruta: 'ovalo-perimetral',
+        posicion: { x: posOvalo2.x, y: posOvalo2.y },
+        progresoLineaDetencion: progOvalo2,
+        estado: estadoOvalo
+      },
+      {
+        id: 'sem-sn',
+        etiqueta: 'S3 · S→N',
+        ruta: 'sur-a-norte',
+        posicion: { x: xSurNorte + anchoDosCarriles * 0.55, y: -yCruce },
+        progresoLineaDetencion: 0.36,
+        estado: estadoVertical
+      },
+      {
+        id: 'sem-ns',
+        etiqueta: 'S4 · N→S',
+        ruta: 'norte-a-sur',
+        posicion: { x: xNorteSur - anchoDosCarriles * 0.55, y: yCruce },
+        progresoLineaDetencion: 0.36,
+        estado: estadoVertical
+      }
+    ];
+  });
 
   public readonly vehiculosEnEscena = computed<VehiculoEnEscena[]>(() => {
     const actores = this.actoresInternos();
@@ -227,6 +300,7 @@ export class PaginaSimulacion implements OnDestroy {
 
   public alReiniciarAnimacion(): void {
     this.progreso.set(0);
+    this.tiempoCicloSemaforo.set(0);
     this.marcaTiempoAnterior = null;
     this.regenerarFlotaVehicular();
   }
@@ -236,7 +310,7 @@ export class PaginaSimulacion implements OnDestroy {
     this.progreso.set(acotado);
     this.actoresInternos.update((lista) =>
       lista.map((actor, indice) =>
-        indice === 0 ? { ...actor, progreso: acotado } : actor
+        indice === 0 ? { ...actor, progreso: acotado, detenidoPorSemaforo: false } : actor
       )
     );
   }
@@ -282,7 +356,8 @@ export class PaginaSimulacion implements OnDestroy {
           ruta: rutaBase,
           carril: carrilBase,
           progreso: this.progreso(),
-          factorVelocidad: 1.0
+          factorVelocidad: 1.0,
+          detenidoPorSemaforo: false
         });
         continue;
       }
@@ -305,7 +380,8 @@ export class PaginaSimulacion implements OnDestroy {
         factorVelocidad:
           config.modoTrafico === 'fluido-aleatorio'
             ? 0.88 + ((i * 7) % 5) * 0.05
-            : 1.0
+            : 1.0,
+        detenidoPorSemaforo: false
       });
     }
 
@@ -405,7 +481,11 @@ export class PaginaSimulacion implements OnDestroy {
     const pasoFrame = (timestamp: number): void => {
       if (this.marcaTiempoAnterior !== null) {
         const deltaSegundos = (timestamp - this.marcaTiempoAnterior) / 1000;
-        const duracionCicloSegundos = 8 / Math.max(0.1, this.velocidad());
+        const velFactor = Math.max(0.1, this.velocidad());
+
+        this.tiempoCicloSemaforo.update((prev) => prev + deltaSegundos * velFactor);
+
+        const duracionCicloSegundos = 8 / velFactor;
         const incrementoBase = deltaSegundos / duracionCicloSegundos;
         const config = this.configuracionTrafico();
         const esFlujoContinuo =
@@ -446,6 +526,7 @@ export class PaginaSimulacion implements OnDestroy {
     const catalogo = this.listaVehiculos();
     const mapaGeom = this.obtenerMapaGeometriasPorRuta();
     const longBase = Math.max(40, this.geometriaActual().longitudTotalRecorridoMetros);
+    const listaSemaforos = this.semaforos();
 
     return actores.map((actor, indice) => {
       const spec =
@@ -458,6 +539,39 @@ export class PaginaSimulacion implements OnDestroy {
 
       const ajusteLongitud = longBase / longitudRuta;
       let paso = incrementoBase * actor.factorVelocidad * ajusteLongitud;
+      let detenidoPorSemaforo = false;
+
+      const margenDetencionProgreso = (spec.largoMetros + 6.5) / longitudRuta;
+      for (const sem of listaSemaforos) {
+        if (sem.ruta !== actor.ruta) {
+          continue;
+        }
+        if (sem.estado === 'rojo' || sem.estado === 'amarillo') {
+          let distHastaLinea = sem.progresoLineaDetencion - actor.progreso;
+          if (actor.ruta === 'ovalo-perimetral' && distHastaLinea < 0) {
+            distHastaLinea += 1;
+          }
+
+          if (distHastaLinea > 0 && distHastaLinea <= margenDetencionProgreso) {
+            const debeDetener =
+              sem.estado === 'rojo' || distHastaLinea > margenDetencionProgreso * 0.35;
+
+            if (debeDetener) {
+              if (distHastaLinea <= margenDetencionProgreso * 0.22) {
+                paso = 0;
+                detenidoPorSemaforo = true;
+              } else {
+                const factorSemaforo = Math.max(
+                  0.12,
+                  (distHastaLinea - margenDetencionProgreso * 0.2) /
+                    margenDetencionProgreso
+                );
+                paso *= Math.min(1, factorSemaforo);
+              }
+            }
+          }
+        }
+      }
 
       const brechaMinimaProgreso = (spec.largoMetros + 8.5) / longitudRuta;
 
@@ -488,7 +602,7 @@ export class PaginaSimulacion implements OnDestroy {
 
       if (siguienteProgreso >= 1) {
         if (!flujoContinuo) {
-          return { ...actor, progreso: 1 };
+          return { ...actor, progreso: 1, detenidoPorSemaforo: false };
         }
 
         const nuevaRuta =
@@ -524,7 +638,7 @@ export class PaginaSimulacion implements OnDestroy {
         );
 
         if (entradaOcupada) {
-          return { ...actor, progreso: 0.995 };
+          return { ...actor, progreso: 0.995, detenidoPorSemaforo };
         }
 
         return {
@@ -532,13 +646,15 @@ export class PaginaSimulacion implements OnDestroy {
           idVehiculo: nuevoTipo,
           ruta: nuevaRuta,
           carril: nuevoCarril,
-          progreso: 0
+          progreso: 0,
+          detenidoPorSemaforo: false
         };
       }
 
       return {
         ...actor,
-        progreso: siguienteProgreso
+        progreso: siguienteProgreso,
+        detenidoPorSemaforo
       };
     });
   }

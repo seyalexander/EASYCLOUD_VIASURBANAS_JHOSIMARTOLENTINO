@@ -1,0 +1,68 @@
+/* Tipografía de videojuego (requiere el <link> de Orbitron en index.html; si no carga, usa monoespaciada) */
+.fuente-juego {
+  font-family: 'Orbitron', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+/* Líneas de barrido tipo pantalla retro */
+.escaneo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0,
+    rgba(255, 255, 255, 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* "Presiona para comenzar" */
+.parpadeo {
+  animation: parpadeo 1.2s steps(1, end) infinite;
+}
+
+@keyframes parpadeo {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Eje central de la vía en movimiento */
+.linea-eje {
+  stroke-dasharray: 10 10;
+  animation: avance 1s linear infinite;
+}
+
+@keyframes avance {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* Puntos de control (CP1, CP2, CP3) con pulso */
+.punto-control {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulso 2.1s ease-out infinite;
+}
+
+@keyframes pulso {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parpadeo,
+  .linea-eje,
+  .punto-control {
+    animation: none;
+  }
+}

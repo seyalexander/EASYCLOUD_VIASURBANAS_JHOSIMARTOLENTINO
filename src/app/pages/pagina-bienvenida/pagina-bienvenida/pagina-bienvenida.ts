@@ -12,6 +12,14 @@ interface TarjetaCaracteristica {
   icono: IconoTarjeta;
 }
 
+interface IndicadorHud {
+  etiqueta: string;
+  valor: string;
+  actual: number;
+  total: number;
+  color: string;
+}
+
 @Component({
   selector: 'app-pagina-bienvenida',
   imports: [RouterLink],
@@ -19,45 +27,47 @@ interface TarjetaCaracteristica {
   styleUrl: './pagina-bienvenida.css'
 })
 export class PaginaBienvenida {
-  public readonly nombreProyecto = 'GeoVial 2D · Simulador de Giros y Retornos';
   public readonly subtitulo =
     'Explora trayectorias vehiculares en curvas y retornos viales con un catálogo de vehículos circulantes, medidas editables y control automático o manual en tiempo real.';
 
-  // Ficha académica (cambia estos datos)
-  public readonly nombreCurso = 'Diseño Geométrico de Vías';
   public readonly nombreAlumno = 'Arles Jhosimar Tolentino Vera';
-  // Ruta de la foto dentro de la carpeta public/ (ej. 'foto-alumno.jpg').
-  // Déjalo vacío ('') para mostrar un avatar con las iniciales.
+  public readonly carrera = 'Ingeniería Civil';
+  public readonly nombreCurso = 'Diseño Vial Urbano';
   public readonly fotoAlumno = '';
+
+  public readonly datos: readonly IndicadorHud[] = [
+    { etiqueta: 'Radios', valor: '×3', actual: 3, total: 3, color: 'bg-[#EE8600]' },
+    { etiqueta: 'Control', valor: 'AUTO/MAN', actual: 2, total: 2, color: 'bg-[#3FBFEF]' },
+    { etiqueta: 'Motor', valor: '2D LIVE', actual: 5, total: 5, color: 'bg-[#76C043]' }
+  ];
 
   public readonly caracteristicas: readonly TarjetaCaracteristica[] = [
     {
-      titulo: 'Vehículos Circulantes y Personalizados',
+      titulo: 'Vehículos Circulantes',
       descripcion:
-        'Elige vehículos típicos con sus medidas y radios de giro listos o ajusta dimensiones personalizadas en metros al instante.',
+        'Catálogo de diseño listo o dimensiones editables en metros al instante.',
       etiqueta: 'Catálogo + Custom',
       acento: 'azul',
       icono: 'vehiculo'
     },
     {
-      titulo: 'Animación Automática y Control Manual',
+      titulo: 'Control Dual 2D',
       descripcion:
-        'Reproduce el recorrido con fluidez o desplaza el vehículo manualmente para revisar cada punto del giro con precisión.',
-      etiqueta: 'Doble Modo',
+        'Reproducción fluida o avance manual paso a paso para validar cada giro.',
+      etiqueta: 'Auto / Manual',
       acento: 'naranja',
       icono: 'animacion'
     },
     {
-      titulo: 'Geometría de Curvas y Holguras',
+      titulo: 'Curvas y Holguras',
       descripcion:
-        'Analiza curvas simples o compuestas de tres radios, bordes de calzada y holguras de seguridad en una vista limpia.',
+        'Curvas simples o de 3 radios, bordes de calzada y holguras de seguridad.',
       etiqueta: 'Precisión 2D',
       acento: 'turquesa',
       icono: 'curva'
     }
   ];
 
-  // Iniciales para el avatar cuando no hay foto (máx. 2 letras)
   public get iniciales(): string {
     return this.nombreAlumno
       .trim()
@@ -67,24 +77,28 @@ export class PaginaBienvenida {
       .join('');
   }
 
-  public obtenerClasesIcono(acento: AcentoTarjeta): string {
-    if (acento === 'naranja') {
-      return 'bg-linear-to-br from-[#EE8600] to-[#F5A93A] text-white shadow-[0_10px_20px_-8px_rgba(238,134,0,0.6)]';
-    }
-    if (acento === 'turquesa') {
-      return 'bg-linear-to-br from-[#43B3C0] to-[#3FBFEF] text-white shadow-[0_10px_20px_-8px_rgba(67,179,192,0.6)]';
-    }
-    return 'bg-linear-to-br from-[#005FAE] to-[#0A7FCB] text-white shadow-[0_10px_20px_-8px_rgba(0,95,174,0.6)]';
+  public rango(total: number): number[] {
+    return Array.from({ length: total }, (_, indice) => indice);
   }
 
-  public obtenerClasesInsignia(acento: AcentoTarjeta): string {
+  public obtenerClaseTexto(acento: AcentoTarjeta): string {
     if (acento === 'naranja') {
-      return 'bg-[#EE8600]/10 text-[#b86500]';
+      return 'text-[#EE8600]';
     }
     if (acento === 'turquesa') {
-      return 'bg-[#43B3C0]/12 text-[#1c6f78]';
+      return 'text-[#43B3C0]';
     }
-    return 'bg-[#005FAE]/8 text-[#005FAE]';
+    return 'text-[#3FBFEF]';
+  }
+
+  public obtenerClaseBordeNivel(acento: AcentoTarjeta): string {
+    if (acento === 'naranja') {
+      return 'border-[#EE8600]';
+    }
+    if (acento === 'turquesa') {
+      return 'border-[#43B3C0]';
+    }
+    return 'border-[#3FBFEF]';
   }
 
   public obtenerClasesBarra(acento: AcentoTarjeta): string {

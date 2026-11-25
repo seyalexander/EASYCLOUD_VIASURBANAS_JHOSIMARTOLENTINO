@@ -366,14 +366,11 @@ export class ServicioGeometriaCurva {
     };
   }
 
-  /**
-   * Genera el eje central de la calzada para cada ruta; luego calcularGeometria /
-   * calcularGeometriaParaRuta aplica el offset exacto del carril 1 o carril 2.
-   */
   private generarPuntosRuta(p: ParametrosCurva, ruta: RutaOvalo): Punto2D[] {
     const {
       rx,
       ry,
+      anchoDosCarriles,
       extensionAcceso,
       xSubidaCentral,
       xBajadaCentral,
@@ -435,31 +432,43 @@ export class ServicioGeometriaCurva {
         const yInicio = ry + extensionAcceso;
         const cosClamped = Math.max(-0.85, Math.min(0.85, xCarril / rx));
         const angEntrada = Math.acos(cosClamped);
-
         const puntoContacto: Punto2D = {
           x: rx * Math.cos(angEntrada),
           y: ry * Math.sin(angEntrada)
         };
-        const yPreContacto = puntoContacto.y + Math.max(2.5, radioEmpalme * 0.45);
+        const yCurvaInicio = Math.min(
+          yInicio - 1,
+          puntoContacto.y + Math.max(3, radioEmpalme * 0.5)
+        );
+        const p0: Punto2D = { x: xCarril, y: yCurvaInicio };
+        const p1: Punto2D = {
+          x: xCarril,
+          y: puntoContacto.y
+        };
 
+        const tramoAcceso = this.muestrearSegmentos([
+          { x: xCarril, y: yInicio },
+          p0
+        ]);
         const curvaIncorporacion = this.muestrearCurvaCuadratica(
-          { x: xCarril, y: yPreContacto },
-          { x: xCarril, y: puntoContacto.y },
+          p0,
+          p1,
           puntoContacto,
-          16
+          12
         );
         const anilloTramo = this.muestrearArcoElipse(
           rx,
           ry,
           angEntrada,
-          angEntrada + Math.PI * 0.9,
-          36
+          angEntrada + Math.PI * 0.3,
+          16
         );
-        return this.muestrearSegmentos([
-          { x: xCarril, y: yInicio },
-          ...curvaIncorporacion,
-          ...anilloTramo
-        ]);
+
+        return [
+          ...tramoAcceso,
+          ...curvaIncorporacion.slice(1),
+          ...anilloTramo.slice(1)
+        ];
       }
 
       case 'sur-a-ovalo': {
@@ -467,72 +476,162 @@ export class ServicioGeometriaCurva {
         const yInicio = -(ry + extensionAcceso);
         const cosClamped = Math.max(-0.85, Math.min(0.85, xCarril / rx));
         const angEntrada = -Math.acos(cosClamped);
-
         const puntoContacto: Punto2D = {
           x: rx * Math.cos(angEntrada),
           y: ry * Math.sin(angEntrada)
         };
-        const yPreContacto = puntoContacto.y - Math.max(2.5, radioEmpalme * 0.45);
+        const yCurvaInicio = Math.max(
+          yInicio + 1,
+          puntoContacto.y - Math.max(3, radioEmpalme * 0.5)
+        );
+        const p0: Punto2D = { x: xCarril, y: yCurvaInicio };
+        const p1: Punto2D = {
+          x: xCarril,
+          y: puntoContacto.y
+        };
 
+        const tramoAcceso = this.muestrearSegmentos([
+          { x: xCarril, y: yInicio },
+          p0
+        ]);
         const curvaIncorporacion = this.muestrearCurvaCuadratica(
-          { x: xCarril, y: yPreContacto },
-          { x: xCarril, y: puntoContacto.y },
+          p0,
+          p1,
           puntoContacto,
-          16
+          12
         );
         const anilloTramo = this.muestrearArcoElipse(
           rx,
           ry,
           angEntrada,
-          angEntrada + Math.PI * 0.9,
-          36
+          angEntrada + Math.PI * 0.3,
+          16
         );
-        return this.muestrearSegmentos([
-          { x: xCarril, y: yInicio },
-          ...curvaIncorporacion,
-          ...anilloTramo
-        ]);
+
+        return [
+          ...tramoAcceso,
+          ...curvaIncorporacion.slice(1),
+          ...anilloTramo.slice(1)
+        ];
       }
 
       case 'oeste-a-ovalo': {
         const yCarril = yInferior;
         const xInicio = -(rx + extensionAcceso);
-        const angEntrada = Math.PI * 1.15;
+        const angEntrada = Math.PI * 1.12;
         const puntoContacto: Punto2D = {
           x: rx * Math.cos(angEntrada),
           y: ry * Math.sin(angEntrada)
         };
+        const xCurvaInicio = Math.max(
+          xInicio + 1,
+          puntoContacto.x - Math.max(3, radioEmpalme * 0.5)
+        );
+        const p0: Punto2D = { x: xCurvaInicio, y: yCarril };
+        const p1: Punto2D = {
+          x: puntoContacto.x,
+          y: yCarril
+        };
+
+        const tramoAcceso = this.muestrearSegmentos([
+          { x: xInicio, y: yCarril },
+          p0
+        ]);
         const curvaIncorporacion = this.muestrearCurvaCuadratica(
-          { x: puntoContacto.x - Math.max(3, radioEmpalme * 0.5), y: yCarril },
-          { x: puntoContacto.x, y: yCarril },
+          p0,
+          p1,
           puntoContacto,
-          16
+          12
         );
         const anilloTramo = this.muestrearArcoElipse(
           rx,
           ry,
           angEntrada,
-          angEntrada + Math.PI * 0.85,
-          34
+          angEntrada + Math.PI * 0.3,
+          16
         );
-        return this.muestrearSegmentos([
-          { x: xInicio, y: yCarril },
-          ...curvaIncorporacion,
-          ...anilloTramo
-        ]);
+
+        return [
+          ...tramoAcceso,
+          ...curvaIncorporacion.slice(1),
+          ...anilloTramo.slice(1)
+        ];
       }
 
       case 'este-a-ovalo': {
         const yCarril = ySuperior;
         const xInicio = rx + extensionAcceso;
-        const angEntrada = Math.PI * 0.15;
+        const angEntrada = Math.PI * 0.12;
         const puntoContacto: Punto2D = {
           x: rx * Math.cos(angEntrada),
           y: ry * Math.sin(angEntrada)
         };
+        const xCurvaInicio = Math.min(
+          xInicio - 1,
+          puntoContacto.x + Math.max(3, radioEmpalme * 0.5)
+        );
+        const p0: Punto2D = { x: xCurvaInicio, y: yCarril };
+        const p1: Punto2D = {
+          x: puntoContacto.x,
+          y: yCarril
+        };
+
+        const tramoAcceso = this.muestrearSegmentos([
+          { x: xInicio, y: yCarril },
+          p0
+        ]);
         const curvaIncorporacion = this.muestrearCurvaCuadratica(
-          { x: puntoContacto.x + Math.max(3, radioEmpalme * 0.5), y: yCarril },
-          { x: puntoContacto.x, y: yCarril },
+          p0,
+          p1,
+          puntoContacto,
+          12
+        );
+        const anilloTramo = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angEntrada,
+          angEntrada + Math.PI * 0.3,
+          16
+        );
+
+        return [
+          ...tramoAcceso,
+          ...curvaIncorporacion.slice(1),
+          ...anilloTramo.slice(1)
+        ];
+      }
+
+      case 'oeste-a-ovalo': {
+        const yCarril = yInferior;
+        const xInicio = -(rx + extensionAcceso);
+        const angEntrada = Math.PI * 1.12;
+        const puntoContacto: Punto2D = {
+          x: rx * Math.cos(angEntrada),
+          y: ry * Math.sin(angEntrada)
+        };
+        const xCurvaInicio = Math.max(
+          xInicio + 2,
+          puntoContacto.x - Math.max(4, radioEmpalme * 0.7)
+        );
+        const tx = -rx * Math.sin(angEntrada);
+        const ty = ry * Math.cos(angEntrada);
+        const xControl =
+          Math.abs(ty) > 0.001
+            ? puntoContacto.x + (tx / ty) * (yCarril - puntoContacto.y)
+            : puntoContacto.x;
+        const p0: Punto2D = { x: xCurvaInicio, y: yCarril };
+        const p1: Punto2D = {
+          x: Math.min(puntoContacto.x, Math.max(xCurvaInicio, xControl)),
+          y: yCarril
+        };
+
+        const tramoAcceso = this.muestrearSegmentos([
+          { x: xInicio, y: yCarril },
+          p0
+        ]);
+        const curvaIncorporacion = this.muestrearCurvaCuadratica(
+          p0,
+          p1,
           puntoContacto,
           16
         );
@@ -540,14 +639,15 @@ export class ServicioGeometriaCurva {
           rx,
           ry,
           angEntrada,
-          angEntrada + Math.PI * 0.85,
-          34
+          angEntrada + Math.PI * 0.45,
+          20
         );
-        return this.muestrearSegmentos([
-          { x: xInicio, y: yCarril },
-          ...curvaIncorporacion,
-          ...anilloTramo
-        ]);
+
+        return [
+          ...tramoAcceso,
+          ...curvaIncorporacion.slice(1),
+          ...anilloTramo.slice(1)
+        ];
       }
 
       case 'ovalo-a-norte': {

@@ -142,7 +142,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       );
     }
 
-    // 3. Vías verticales centrales (paso inferior) y ramales laterales
+    // 3. Vías verticales centrales y ramales laterales
     for (const viaY of viasVerticales) {
       this.dibujarPoligonoRelleno(ctx, viaY, aPantalla, colorAsfalto, null, 0);
     }
@@ -157,7 +157,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     }
     ctx.restore();
 
-    // Calcular radios del tablero del óvalo para ocultar los vehículos de paso inferior cuando van por debajo
+    // Calcular radios del tablero del óvalo para ocultar vehículos de paso inferior y limpiar líneas internas
     const medidasOvalo = this.obtenerMedidasAnilloOvalo(franjaAnillo, geom);
 
     const actores = this.vehiculosEnEscena();
@@ -169,7 +169,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       'este-a-oeste'
     ]);
 
-    // 4. Vehículos en paso inferior: solo se dibujan cuando están fuera del tablero del óvalo (pasan por debajo)
+   // 4. Vehículos en paso inferior: se ocultan al cruzar por debajo del tablero del óvalo
     for (const actor of actores) {
       if (!rutasPasoInferior.has(actor.ruta)) continue;
       if (
@@ -189,7 +189,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       );
     }
 
-    // 5. Anillo del óvalo y sus 2 líneas punteadas de carril
+    // 5. Anillo del óvalo y sus 2 líneas punteadas de carril en TODO el perímetro (360°)
     if (franjaAnillo) {
       this.dibujarPoligonoRelleno(ctx, franjaAnillo, aPantalla, colorAsfalto, null, 0);
       this.dibujarLineasCarrilOvaloCompleto(
@@ -203,8 +203,6 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
 
     ctx.save();
     ctx.setLineDash([7, 7]);
-    this.dibujarPolilinea(ctx, geom.puntosCarril1, aPantalla, colorLineaCarril, 1.4);
-    this.dibujarPolilinea(ctx, geom.puntosCarril2, aPantalla, colorLineaCarril, 1.4);
     ctx.restore();
 
     // 6. Vehículos que circulan por el óvalo o entran/salen por los ramales (encima del óvalo)
@@ -660,8 +658,8 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
 
     ctx.save();
     ctx.setLineDash([7, 7]);
-    this.dibujarPolilinea(ctx, carrilInterno, aPantalla, color, 1.4);
-    this.dibujarPolilinea(ctx, carrilExterno, aPantalla, color, 1.4);
+     this.dibujarPolilinea(ctx, carrilInterno, aPantalla, color, 1.4);
+     this.dibujarPolilinea(ctx, carrilExterno, aPantalla, color, 1.4);
     ctx.restore();
   }
 }

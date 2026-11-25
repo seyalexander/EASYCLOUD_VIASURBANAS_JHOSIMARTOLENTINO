@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import {
+  NumeroCarril,
   ParametrosCurva,
   Punto2D,
-  ResultadoGeometriaCurva
+  ResultadoGeometriaCurva,
+  RutaOvalo
 } from '../../modelos/modelo-curva';
 import { EspecificacionVehiculo } from '../../modelos/modelo-vehiculos';
 
@@ -103,23 +105,26 @@ export class ServicioGeometriaCurva {
       anchoCarrilMetros: anchoCarrilEfectivo
     };
 
-    // La ruta base se alinea al centro del anillo/calzada de 2 carriles
-    const puntosBaseRuta = this.generarPuntosRutaOvalo(parametrosEfectivos);
+    const puntosEjeCalzada = this.generarPuntosRuta(
+      parametrosEfectivos,
+      parametrosEfectivos.rutaOvalo
+    );
 
-    // Cada calzada tiene 2 carriles: offset desde el centro de la calzada (-0.5 * carril y +0.5 * carril)
-    const offsetCentroCarril1 = -anchoCarrilEfectivo * 0.5;
-    const offsetCentroCarril2 = anchoCarrilEfectivo * 0.5;
+    const puntosCarril1 = this.generarOffsetParalelo(
+      puntosEjeCalzada,
+      -anchoCarrilEfectivo * 0.5
+    );
+    const puntosCarril2 = this.generarOffsetParalelo(
+      puntosEjeCalzada,
+      anchoCarrilEfectivo * 0.5
+    );
 
-    const puntosCarril1 = this.generarOffsetParalelo(puntosBaseRuta, offsetCentroCarril1);
-    const puntosCarril2 = this.generarOffsetParalelo(puntosBaseRuta, offsetCentroCarril2);
-
-    // El vehículo circula por el centro del carril seleccionado (1 o 2)
     const puntosEje =
       parametros.carrilSeleccionado === 1 ? puntosCarril1 : puntosCarril2;
 
     const mitadCalzada = anchoCalzadaEfectivo / 2;
-    const puntosBordeInterno = this.generarOffsetParalelo(puntosBaseRuta, -mitadCalzada);
-    const puntosBordeExterno = this.generarOffsetParalelo(puntosBaseRuta, mitadCalzada);
+    const puntosBordeInterno = this.generarOffsetParalelo(puntosEjeCalzada, -mitadCalzada);
+    const puntosBordeExterno = this.generarOffsetParalelo(puntosEjeCalzada, mitadCalzada);
 
     const { franjasViales, contornoIsletaCentral } =
       this.generarEscenaOvaloMetropolitana(parametrosEfectivos);
@@ -128,7 +133,7 @@ export class ServicioGeometriaCurva {
 
     return {
       esValida: true,
-      mensajeValidacion: 'Óvalo y geometría válidos según parámetros del Capítulo 4.',
+      mensajeValidacion: 'Óvalo con carriles centrados y paso inferior válido.',
       observacionesLibro,
       angulo1Grados: this.radianesAGrados(angulo1Rad),
       angulo2Grados: this.radianesAGrados(angulo2Rad),
@@ -148,6 +153,61 @@ export class ServicioGeometriaCurva {
       puntosBordeExterno,
       franjasViales,
       contornoIsletaCentral
+    };
+  }
+
+  public calcularGeometriaParaRuta(
+    parametros: ParametrosCurva,
+    ruta: RutaOvalo,
+    carril: NumeroCarril
+  ): ResultadoGeometriaCurva {
+    const anchoCalzadaEfectivo = Math.max(4.4, parametros.anchoCalzadaMetros);
+    const anchoCarrilEfectivo = anchoCalzadaEfectivo / 2;
+    const pEfectivos: ParametrosCurva = {
+      ...parametros,
+      rutaOvalo: ruta,
+      carrilSeleccionado: carril,
+      anchoCalzadaMetros: anchoCalzadaEfectivo,
+      anchoCarrilMetros: anchoCarrilEfectivo
+    };
+
+    const puntosEjeCalzada = this.generarPuntosRuta(pEfectivos, ruta);
+    const mitadCalzada = anchoCalzadaEfectivo / 2;
+    const puntosCarril1 = this.generarOffsetParalelo(
+      puntosEjeCalzada,
+      -anchoCarrilEfectivo * 0.5
+    );
+    const puntosCarril2 = this.generarOffsetParalelo(
+      puntosEjeCalzada,
+      anchoCarrilEfectivo * 0.5
+    );
+    const puntosEjeActivo = carril === 1 ? puntosCarril1 : puntosCarril2;
+    const puntosBordeInterno = this.generarOffsetParalelo(puntosEjeCalzada, -mitadCalzada);
+    const puntosBordeExterno = this.generarOffsetParalelo(puntosEjeCalzada, mitadCalzada);
+    const longitudTotalRecorridoMetros = this.calcularLongitudPolilinea(puntosEjeActivo);
+
+    return {
+      esValida: true,
+      mensajeValidacion: '',
+      observacionesLibro: [],
+      angulo1Grados: 0,
+      angulo2Grados: 0,
+      angulo3Grados: 0,
+      tangente1Metros: 0,
+      tangente2Metros: 0,
+      tangente3Metros: 0,
+      longitudArco1Metros: 0,
+      longitudArco2Metros: 0,
+      longitudArco3Metros: 0,
+      longitudTotalCurvaMetros: 0,
+      longitudTotalRecorridoMetros,
+      puntosEje: puntosEjeActivo,
+      puntosCarril1,
+      puntosCarril2,
+      puntosBordeInterno,
+      puntosBordeExterno,
+      franjasViales: [],
+      contornoIsletaCentral: []
     };
   }
 
@@ -221,6 +281,37 @@ export class ServicioGeometriaCurva {
     };
   }
 
+  private obtenerGeometriaBaseVias(p: ParametrosCurva) {
+    const rx = p.semiejeXMetros;
+    const ry = p.semiejeYMetros;
+    const anchoDosCarriles = p.anchoCalzadaMetros;
+    const separacionSentidos = Math.max(4.5, p.anchoCarrilMetros * 1.4);
+    const extensionAcceso = Math.max(24, p.longitudTramoRectoMetros * 1.6);
+
+    const xSubidaCentral = separacionSentidos / 2 + anchoDosCarriles / 2;
+    const xBajadaCentral = -(separacionSentidos / 2 + anchoDosCarriles / 2);
+
+    const xRamalIzquierdo = xBajadaCentral - anchoDosCarriles;
+    const xRamalDerecho = xSubidaCentral + anchoDosCarriles;
+
+    const yInferior = -(separacionSentidos / 2 + anchoDosCarriles / 2);
+    const ySuperior = separacionSentidos / 2 + anchoDosCarriles / 2;
+
+    return {
+      rx,
+      ry,
+      anchoDosCarriles,
+      separacionSentidos,
+      extensionAcceso,
+      xSubidaCentral,
+      xBajadaCentral,
+      xRamalIzquierdo,
+      xRamalDerecho,
+      yInferior,
+      ySuperior
+    };
+  }
+
   private validarParametrosBase(p: ParametrosCurva): { esValida: boolean; mensaje: string } {
     if (p.anguloDeflexionGrados <= 0 || p.anguloDeflexionGrados > 180) {
       return {
@@ -275,82 +366,348 @@ export class ServicioGeometriaCurva {
     };
   }
 
-  private generarPuntosRutaOvalo(p: ParametrosCurva): Punto2D[] {
-    const rx = p.semiejeXMetros;
-    const ry = p.semiejeYMetros;
-    const extensionAcceso = Math.max(24, p.longitudTramoRectoMetros * 1.6);
+  /**
+   * Genera el eje central de la calzada para cada ruta; luego calcularGeometria /
+   * calcularGeometriaParaRuta aplica el offset exacto del carril 1 o carril 2.
+   */
+  private generarPuntosRuta(p: ParametrosCurva, ruta: RutaOvalo): Punto2D[] {
+    const {
+      rx,
+      ry,
+      extensionAcceso,
+      xSubidaCentral,
+      xBajadaCentral,
+      xRamalIzquierdo,
+      xRamalDerecho,
+      yInferior,
+      ySuperior
+    } = this.obtenerGeometriaBaseVias(p);
 
-    switch (p.rutaOvalo) {
+    const radioEmpalme = Math.max(4, Math.min(p.radio2Metros, rx * 0.24, ry * 0.28));
+
+    switch (ruta) {
       case 'ovalo-perimetral': {
-        const puntos: Punto2D[] = [];
-        const pasos = 140;
-        const direccion = p.sentidoGiro === 'derecha' ? -1 : 1;
-        for (let i = 0; i <= pasos; i++) {
-          const t = (i / pasos) * Math.PI * 2 * direccion;
-          puntos.push({
-            x: rx * Math.cos(t),
-            y: ry * Math.sin(t)
-          });
-        }
-        return puntos;
+        return this.muestrearArcoElipse(rx, ry, 0, Math.PI * 2, 140);
       }
 
       case 'sur-a-norte': {
+        const x = xSubidaCentral;
         return this.muestrearSegmentos([
-          { x: 0, y: -(ry + extensionAcceso) },
-          { x: 0, y: -(ry * 0.45) },
-          { x: 0, y: ry * 0.45 },
-          { x: 0, y: ry + extensionAcceso }
+          { x, y: -(ry + extensionAcceso) },
+          { x, y: -ry * 0.45 },
+          { x, y: ry * 0.45 },
+          { x, y: ry + extensionAcceso }
         ]);
       }
 
       case 'norte-a-sur': {
+        const x = xBajadaCentral;
         return this.muestrearSegmentos([
-          { x: 0, y: ry + extensionAcceso },
-          { x: 0, y: ry * 0.45 },
-          { x: 0, y: -(ry * 0.45) },
-          { x: 0, y: -(ry + extensionAcceso) }
+          { x, y: ry + extensionAcceso },
+          { x, y: ry * 0.45 },
+          { x, y: -ry * 0.45 },
+          { x, y: -(ry + extensionAcceso) }
         ]);
       }
 
       case 'oeste-a-este': {
+        const y = yInferior;
         return this.muestrearSegmentos([
-          { x: -(rx + extensionAcceso), y: 0 },
-          { x: -(rx * 0.45), y: 0 },
-          { x: rx * 0.45, y: 0 },
-          { x: rx + extensionAcceso, y: 0 }
+          { x: -(rx + extensionAcceso), y },
+          { x: -rx * 0.45, y },
+          { x: rx * 0.45, y },
+          { x: rx + extensionAcceso, y }
         ]);
       }
 
       case 'este-a-oeste': {
+        const y = ySuperior;
         return this.muestrearSegmentos([
-          { x: rx + extensionAcceso, y: 0 },
-          { x: rx * 0.45, y: 0 },
-          { x: -(rx * 0.45), y: 0 },
-          { x: -(rx + extensionAcceso), y: 0 }
+          { x: rx + extensionAcceso, y },
+          { x: rx * 0.45, y },
+          { x: -rx * 0.45, y },
+          { x: -(rx + extensionAcceso), y }
+        ]);
+      }
+
+      case 'norte-a-ovalo': {
+        const xCarril = xRamalIzquierdo;
+        const yInicio = ry + extensionAcceso;
+        const cosClamped = Math.max(-0.85, Math.min(0.85, xCarril / rx));
+        const angEntrada = Math.acos(cosClamped);
+
+        const puntoContacto: Punto2D = {
+          x: rx * Math.cos(angEntrada),
+          y: ry * Math.sin(angEntrada)
+        };
+        const yPreContacto = puntoContacto.y + Math.max(2.5, radioEmpalme * 0.45);
+
+        const curvaIncorporacion = this.muestrearCurvaCuadratica(
+          { x: xCarril, y: yPreContacto },
+          { x: xCarril, y: puntoContacto.y },
+          puntoContacto,
+          16
+        );
+        const anilloTramo = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angEntrada,
+          angEntrada + Math.PI * 0.9,
+          36
+        );
+        return this.muestrearSegmentos([
+          { x: xCarril, y: yInicio },
+          ...curvaIncorporacion,
+          ...anilloTramo
+        ]);
+      }
+
+      case 'sur-a-ovalo': {
+        const xCarril = xRamalDerecho;
+        const yInicio = -(ry + extensionAcceso);
+        const cosClamped = Math.max(-0.85, Math.min(0.85, xCarril / rx));
+        const angEntrada = -Math.acos(cosClamped);
+
+        const puntoContacto: Punto2D = {
+          x: rx * Math.cos(angEntrada),
+          y: ry * Math.sin(angEntrada)
+        };
+        const yPreContacto = puntoContacto.y - Math.max(2.5, radioEmpalme * 0.45);
+
+        const curvaIncorporacion = this.muestrearCurvaCuadratica(
+          { x: xCarril, y: yPreContacto },
+          { x: xCarril, y: puntoContacto.y },
+          puntoContacto,
+          16
+        );
+        const anilloTramo = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angEntrada,
+          angEntrada + Math.PI * 0.9,
+          36
+        );
+        return this.muestrearSegmentos([
+          { x: xCarril, y: yInicio },
+          ...curvaIncorporacion,
+          ...anilloTramo
+        ]);
+      }
+
+      case 'oeste-a-ovalo': {
+        const yCarril = yInferior;
+        const xInicio = -(rx + extensionAcceso);
+        const angEntrada = Math.PI * 1.15;
+        const puntoContacto: Punto2D = {
+          x: rx * Math.cos(angEntrada),
+          y: ry * Math.sin(angEntrada)
+        };
+        const curvaIncorporacion = this.muestrearCurvaCuadratica(
+          { x: puntoContacto.x - Math.max(3, radioEmpalme * 0.5), y: yCarril },
+          { x: puntoContacto.x, y: yCarril },
+          puntoContacto,
+          16
+        );
+        const anilloTramo = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angEntrada,
+          angEntrada + Math.PI * 0.85,
+          34
+        );
+        return this.muestrearSegmentos([
+          { x: xInicio, y: yCarril },
+          ...curvaIncorporacion,
+          ...anilloTramo
+        ]);
+      }
+
+      case 'este-a-ovalo': {
+        const yCarril = ySuperior;
+        const xInicio = rx + extensionAcceso;
+        const angEntrada = Math.PI * 0.15;
+        const puntoContacto: Punto2D = {
+          x: rx * Math.cos(angEntrada),
+          y: ry * Math.sin(angEntrada)
+        };
+        const curvaIncorporacion = this.muestrearCurvaCuadratica(
+          { x: puntoContacto.x + Math.max(3, radioEmpalme * 0.5), y: yCarril },
+          { x: puntoContacto.x, y: yCarril },
+          puntoContacto,
+          16
+        );
+        const anilloTramo = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angEntrada,
+          angEntrada + Math.PI * 0.85,
+          34
+        );
+        return this.muestrearSegmentos([
+          { x: xInicio, y: yCarril },
+          ...curvaIncorporacion,
+          ...anilloTramo
+        ]);
+      }
+
+      case 'ovalo-a-norte': {
+        const xCarril = xRamalDerecho;
+        const ySalida = ry + extensionAcceso;
+        const cosClamped = Math.max(-0.85, Math.min(0.85, xCarril / rx));
+        const angSalida = Math.acos(cosClamped);
+
+        const anilloPrevio = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angSalida - Math.PI * 0.65,
+          angSalida,
+          28
+        );
+        const puntoSalida: Punto2D = {
+          x: rx * Math.cos(angSalida),
+          y: ry * Math.sin(angSalida)
+        };
+        const curvaSalida = this.muestrearCurvaCuadratica(
+          puntoSalida,
+          { x: xCarril, y: puntoSalida.y },
+          { x: xCarril, y: puntoSalida.y + Math.max(2.5, radioEmpalme * 0.45) },
+          14
+        );
+        return this.muestrearSegmentos([
+          ...anilloPrevio,
+          ...curvaSalida,
+          { x: xCarril, y: ySalida }
+        ]);
+      }
+
+      case 'ovalo-a-sur': {
+        const xCarril = xRamalIzquierdo;
+        const ySalida = -(ry + extensionAcceso);
+        const cosClamped = Math.max(-0.85, Math.min(0.85, xCarril / rx));
+        const angSalida = -Math.acos(cosClamped);
+
+        const anilloPrevio = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angSalida - Math.PI * 0.65,
+          angSalida,
+          28
+        );
+        const puntoSalida: Punto2D = {
+          x: rx * Math.cos(angSalida),
+          y: ry * Math.sin(angSalida)
+        };
+        const curvaSalida = this.muestrearCurvaCuadratica(
+          puntoSalida,
+          { x: xCarril, y: puntoSalida.y },
+          { x: xCarril, y: puntoSalida.y - Math.max(2.5, radioEmpalme * 0.45) },
+          14
+        );
+        return this.muestrearSegmentos([
+          ...anilloPrevio,
+          ...curvaSalida,
+          { x: xCarril, y: ySalida }
+        ]);
+      }
+
+      case 'ovalo-a-oeste': {
+        const yCarril = ySuperior;
+        const xSalida = -(rx + extensionAcceso);
+        const angSalida = Math.PI * 0.85;
+        const anilloPrevio = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angSalida - Math.PI * 0.5,
+          angSalida,
+          24
+        );
+        const puntoSalida: Punto2D = {
+          x: rx * Math.cos(angSalida),
+          y: ry * Math.sin(angSalida)
+        };
+        const curvaSalida = this.muestrearCurvaCuadratica(
+          puntoSalida,
+          { x: puntoSalida.x - Math.max(2.5, radioEmpalme * 0.45), y: yCarril },
+          { x: puntoSalida.x - Math.max(5, radioEmpalme * 0.85), y: yCarril },
+          14
+        );
+        return this.muestrearSegmentos([
+          ...anilloPrevio,
+          ...curvaSalida,
+          { x: xSalida, y: yCarril }
+        ]);
+      }
+
+      case 'ovalo-a-este': {
+        const yCarril = yInferior;
+        const xSalida = rx + extensionAcceso;
+        const angSalida = -Math.PI * 0.15;
+        const anilloPrevio = this.muestrearArcoElipse(
+          rx,
+          ry,
+          angSalida - Math.PI * 0.5,
+          angSalida,
+          24
+        );
+        const puntoSalida: Punto2D = {
+          x: rx * Math.cos(angSalida),
+          y: ry * Math.sin(angSalida)
+        };
+        const curvaSalida = this.muestrearCurvaCuadratica(
+          puntoSalida,
+          { x: puntoSalida.x + Math.max(2.5, radioEmpalme * 0.45), y: yCarril },
+          { x: puntoSalida.x + Math.max(5, radioEmpalme * 0.85), y: yCarril },
+          14
+        );
+        return this.muestrearSegmentos([
+          ...anilloPrevio,
+          ...curvaSalida,
+          { x: xSalida, y: yCarril }
         ]);
       }
     }
+  }
+
+  private muestrearCurvaCuadratica(
+    p0: Punto2D,
+    p1: Punto2D,
+    p2: Punto2D,
+    pasos: number
+  ): Punto2D[] {
+    const pts: Punto2D[] = [];
+    for (let i = 0; i <= pasos; i++) {
+      const t = i / pasos;
+      const u = 1 - t;
+      pts.push({
+        x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+        y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y
+      });
+    }
+    return pts;
   }
 
   private generarEscenaOvaloMetropolitana(p: ParametrosCurva): {
     franjasViales: Punto2D[][];
     contornoIsletaCentral: Punto2D[];
   } {
-    const rx = p.semiejeXMetros;
-    const ry = p.semiejeYMetros;
-    const anchoDosCarriles = p.anchoCalzadaMetros;
-    const separacionSentidos = Math.max(4.5, p.anchoCarrilMetros * 1.4);
-    const extensionAcceso = Math.max(24, p.longitudTramoRectoMetros * 1.6);
+    const {
+      rx,
+      ry,
+      anchoDosCarriles,
+      extensionAcceso,
+      xSubidaCentral,
+      xBajadaCentral,
+      xRamalIzquierdo,
+      xRamalDerecho,
+      yInferior,
+      ySuperior
+    } = this.obtenerGeometriaBaseVias(p);
 
     const franjasViales: Punto2D[][] = [];
 
-    const xSubida = separacionSentidos / 2 + anchoDosCarriles / 2;
-    const xBajada = -(separacionSentidos / 2 + anchoDosCarriles / 2);
-
     franjasViales.push(
       this.crearRectanguloFranja(
-        xSubida - anchoDosCarriles / 2,
+        xSubidaCentral - anchoDosCarriles / 2,
         -(ry + extensionAcceso),
         anchoDosCarriles,
         (ry + extensionAcceso) * 2
@@ -358,20 +715,17 @@ export class ServicioGeometriaCurva {
     );
     franjasViales.push(
       this.crearRectanguloFranja(
-        xBajada - anchoDosCarriles / 2,
+        xBajadaCentral - anchoDosCarriles / 2,
         -(ry + extensionAcceso),
         anchoDosCarriles,
         (ry + extensionAcceso) * 2
       )
     );
 
-    const yDerecha = -(separacionSentidos / 2 + anchoDosCarriles / 2);
-    const yIzquierda = separacionSentidos / 2 + anchoDosCarriles / 2;
-
     franjasViales.push(
       this.crearRectanguloFranja(
         -(rx + extensionAcceso),
-        yDerecha - anchoDosCarriles / 2,
+        yInferior - anchoDosCarriles / 2,
         (rx + extensionAcceso) * 2,
         anchoDosCarriles
       )
@@ -379,9 +733,52 @@ export class ServicioGeometriaCurva {
     franjasViales.push(
       this.crearRectanguloFranja(
         -(rx + extensionAcceso),
-        yIzquierda - anchoDosCarriles / 2,
+        ySuperior - anchoDosCarriles / 2,
         (rx + extensionAcceso) * 2,
         anchoDosCarriles
+      )
+    );
+
+    const yTop = ry + extensionAcceso;
+    const yBottom = -(ry + extensionAcceso);
+
+    const yContactoIzqSup =
+      ry * Math.sqrt(Math.max(0.15, 1 - (xRamalIzquierdo / rx) ** 2)) -
+      anchoDosCarriles * 0.25;
+    const yContactoDerSup =
+      ry * Math.sqrt(Math.max(0.15, 1 - (xRamalDerecho / rx) ** 2)) -
+      anchoDosCarriles * 0.25;
+
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        xRamalIzquierdo - anchoDosCarriles / 2,
+        yContactoIzqSup,
+        anchoDosCarriles,
+        yTop - yContactoIzqSup
+      )
+    );
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        xRamalDerecho - anchoDosCarriles / 2,
+        yContactoDerSup,
+        anchoDosCarriles,
+        yTop - yContactoDerSup
+      )
+    );
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        xRamalIzquierdo - anchoDosCarriles / 2,
+        yBottom,
+        anchoDosCarriles,
+        -yContactoIzqSup - yBottom
+      )
+    );
+    franjasViales.push(
+      this.crearRectanguloFranja(
+        xRamalDerecho - anchoDosCarriles / 2,
+        yBottom,
+        anchoDosCarriles,
+        -yContactoDerSup - yBottom
       )
     );
 
@@ -412,6 +809,25 @@ export class ServicioGeometriaCurva {
     }
 
     return { franjasViales, contornoIsletaCentral };
+  }
+
+  private muestrearArcoElipse(
+    rx: number,
+    ry: number,
+    angInicio: number,
+    angFin: number,
+    pasos: number
+  ): Punto2D[] {
+    const pts: Punto2D[] = [];
+    for (let i = 0; i <= pasos; i++) {
+      const t = i / pasos;
+      const a = angInicio + (angFin - angInicio) * t;
+      pts.push({
+        x: rx * Math.cos(a),
+        y: ry * Math.sin(a)
+      });
+    }
+    return pts;
   }
 
   private crearRectanguloFranja(

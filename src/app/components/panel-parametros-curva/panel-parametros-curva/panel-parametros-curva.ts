@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ParametrosCurva,
   ResultadoGeometriaCurva,
+  RutaOvalo,
   SentidoGiro,
   TipoCurva
 } from '../../../core/modelos/modelo-curva';
@@ -19,6 +20,7 @@ import {
 export type CampoParametroCurva =
   | 'tipoCurva'
   | 'sentidoGiro'
+  | 'rutaOvalo'
   | 'anguloDeflexionGrados'
   | 'radio1Metros'
   | 'radio2Metros'
@@ -51,6 +53,20 @@ export class PanelParametrosCurva {
   public readonly cambiarVelocidad = output<number>();
   public readonly ajustarAVehiculo = output<void>();
   public readonly cambiarConfiguracionTrafico = output<ConfiguracionTrafico>();
+
+  public readonly opcionesRuta: { valor: RutaOvalo; etiqueta: string }[] = [
+    { valor: 'ovalo-perimetral', etiqueta: 'Óvalo perimetral' },
+    { valor: 'norte-a-ovalo', etiqueta: 'Bajar Norte → Óvalo' },
+    { valor: 'sur-a-ovalo', etiqueta: 'Subir Sur → Óvalo' },
+    { valor: 'ovalo-a-norte', etiqueta: 'Óvalo → Salir Norte' },
+    { valor: 'ovalo-a-sur', etiqueta: 'Óvalo → Salir Sur' },
+    { valor: 'oeste-a-ovalo', etiqueta: 'Lateral Izq. → Óvalo' },
+    { valor: 'este-a-ovalo', etiqueta: 'Lateral Der. → Óvalo' },
+    { valor: 'ovalo-a-oeste', etiqueta: 'Óvalo → Lateral Izq.' },
+    { valor: 'ovalo-a-este', etiqueta: 'Óvalo → Lateral Der.' },
+    { valor: 'norte-a-sur', etiqueta: 'Recta Norte → Sur' },
+    { valor: 'sur-a-norte', etiqueta: 'Recta Sur → Norte' }
+  ];
 
   public readonly claseCampo =
     'w-full rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900 ring-1 ring-slate-200 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005FAE]/50';
@@ -97,13 +113,14 @@ export class PanelParametrosCurva {
 
   public actualizarCampoCurva(
     campo: CampoParametroCurva,
-    valor: TipoCurva | SentidoGiro | number | string | null
+    valor: TipoCurva | SentidoGiro | RutaOvalo | number | string | null
   ): void {
     if (valor === null) {
       return;
     }
 
-    const esTextoSeleccion = campo === 'tipoCurva' || campo === 'sentidoGiro';
+    const esTextoSeleccion =
+      campo === 'tipoCurva' || campo === 'sentidoGiro' || campo === 'rutaOvalo';
     const valorFinal = esTextoSeleccion
       ? valor
       : typeof valor === 'string'
@@ -139,8 +156,8 @@ export class PanelParametrosCurva {
   public alCambiarModoTrafico(modoTrafico: ModoTrafico): void {
     const actual = this.configuracionTrafico();
     const cantidad =
-      modoTrafico === 'fluido-aleatorio' && actual.cantidadVehiculos < 3
-        ? 5
+      modoTrafico === 'fluido-aleatorio' && actual.cantidadVehiculos < 4
+        ? 6
         : actual.cantidadVehiculos;
 
     this.cambiarConfiguracionTrafico.emit({

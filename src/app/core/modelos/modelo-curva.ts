@@ -4,13 +4,21 @@ export type SentidoGiro = 'derecha' | 'izquierda';
 /** Tipo de geometría de curva a calcular */
 export type TipoCurva = 'simple' | 'compuesta-3-radios';
 
-/** Acceso o recorrido disponible en el óvalo de Av. Metropolitana */
+/** Acceso, cruce o recorrido de ingreso/salida en el óvalo */
 export type RutaOvalo =
   | 'ovalo-perimetral'
   | 'sur-a-norte'
   | 'norte-a-sur'
   | 'oeste-a-este'
-  | 'este-a-oeste';
+  | 'este-a-oeste'
+  | 'norte-a-ovalo'
+  | 'sur-a-ovalo'
+  | 'oeste-a-ovalo'
+  | 'este-a-ovalo'
+  | 'ovalo-a-norte'
+  | 'ovalo-a-sur'
+  | 'ovalo-a-oeste'
+  | 'ovalo-a-este';
 
 /** Carril seleccionado dentro de una calzada de 2 carriles por sentido */
 export type NumeroCarril = 1 | 2;
@@ -25,7 +33,7 @@ export interface Punto2D {
 export interface ParametrosCurva {
   tipoCurva: TipoCurva;
   sentidoGiro: SentidoGiro;
-  /** Ruta o acceso seleccionado en el óvalo de Av. Metropolitana */
+  /** Ruta o acceso seleccionado en el óvalo */
   rutaOvalo: RutaOvalo;
   /** Carril activo (1 = carril interior/izquierdo del sentido, 2 = carril exterior/derecho) */
   carrilSeleccionado: NumeroCarril;
@@ -77,7 +85,7 @@ export interface ResultadoGeometriaCurva {
   /** Bordes del corredor activo */
   puntosBordeInterno: Punto2D[];
   puntosBordeExterno: Punto2D[];
-  /** Múltiples franjas viales del óvalo (2 carriles en vertical y 2 en horizontal + óvalo) */
+  /** Múltiples franjas viales del óvalo, ramales y curvas de empalme R */
   franjasViales: Punto2D[][];
   /** Contorno de la isleta central del óvalo */
   contornoIsletaCentral: Punto2D[];

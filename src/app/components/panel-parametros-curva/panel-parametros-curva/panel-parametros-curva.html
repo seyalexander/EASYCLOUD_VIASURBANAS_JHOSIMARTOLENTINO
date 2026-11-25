@@ -118,7 +118,7 @@
       <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Flujo vehicular</span>
     </div>
     <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
-      Sin congestión
+      Entradas y salidas
     </span>
   </div>
 
@@ -175,7 +175,7 @@
       </div>
 
       <label class="flex cursor-pointer items-center justify-between border-t border-slate-200/80 pt-2 text-xs font-semibold text-slate-700">
-        <span>Incluir cruce por vía recta (Eje Y)</span>
+        <span>Incluir cruces directos Norte/Sur</span>
         <input
           type="checkbox"
           [checked]="configuracionTrafico().incluirViaRecta"
@@ -206,6 +206,21 @@
       </svg>
       Ajustar al vehículo
     </button>
+  </div>
+
+  <div class="mb-3">
+    <label class="flex flex-col gap-1.5">
+      <span class="text-xs font-semibold text-slate-600">Ruta / Acceso al óvalo</span>
+      <select
+        [ngModel]="parametros().rutaOvalo"
+        (ngModelChange)="actualizarCampoCurva('rutaOvalo', $event)"
+        [class]="claseCampo"
+      >
+        @for (op of opcionesRuta; track op.valor) {
+          <option [value]="op.valor">{{ op.etiqueta }}</option>
+        }
+      </select>
+    </label>
   </div>
 
   <div class="mb-3">

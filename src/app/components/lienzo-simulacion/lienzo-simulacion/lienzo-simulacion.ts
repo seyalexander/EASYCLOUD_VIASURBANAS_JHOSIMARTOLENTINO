@@ -112,10 +112,13 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
 
     const viasVerticales = geom.franjasViales.slice(0, 2);
     const viasHorizontales = geom.franjasViales.slice(2, 4);
+    const ramalesLaterales = geom.franjasViales.slice(4, -1);
     const franjaAnillo =
-      geom.franjasViales.length > 4 ? geom.franjasViales[4] : null;
+      geom.franjasViales.length > 4
+        ? geom.franjasViales[geom.franjasViales.length - 1]
+        : null;
 
-    // 1. Vías horizontales de acceso y sus 2 carriles
+    // 1. Vías horizontales de paso inferior y sus 2 carriles
     for (const viaX of viasHorizontales) {
       this.dibujarPoligonoRelleno(ctx, viaX, aPantalla, colorAsfalto, null, 0);
     }
@@ -127,7 +130,7 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     }
     ctx.restore();
 
-    // 2. Limpiar interior del óvalo para anular el paso horizontal interno sin líneas residuales
+    // 2. Limpiar interior del óvalo
     if (franjaAnillo && viasHorizontales.length >= 2) {
       this.limpiarInteriorOvalo(
         ctx,
@@ -139,31 +142,42 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       );
     }
 
-    // 3. Vías verticales continuas de arriba a abajo con sus 2 carriles punteados
+    // 3. Vías verticales centrales (paso inferior) y ramales laterales
     for (const viaY of viasVerticales) {
       this.dibujarPoligonoRelleno(ctx, viaY, aPantalla, colorAsfalto, null, 0);
+    }
+    for (const ramal of ramalesLaterales) {
+      this.dibujarPoligonoRelleno(ctx, ramal, aPantalla, colorAsfalto, null, 0);
     }
 
     ctx.save();
     ctx.setLineDash([7, 7]);
-    for (const viaY of viasVerticales) {
+    for (const viaY of [...viasVerticales, ...ramalesLaterales]) {
       this.dibujarCarrilesEnFranjaVertical(ctx, viaY, aPantalla, colorLineaCarril);
     }
     ctx.restore();
 
-    // Separar vehículos verticales (pasan por debajo del óvalo) y vehículos del óvalo
+    // Calcular radios del tablero del óvalo para ocultar los vehículos de paso inferior cuando van por debajo
+    const medidasOvalo = this.obtenerMedidasAnilloOvalo(franjaAnillo, geom);
+
     const actores = this.vehiculosEnEscena();
     const catalogo = this.catalogoVehiculos();
+    const rutasPasoInferior = new Set([
+      'sur-a-norte',
+      'norte-a-sur',
+      'oeste-a-este',
+      'este-a-oeste'
+    ]);
 
-    const actoresVerticales = actores.filter(
-      (a) => a.ruta === 'sur-a-norte' || a.ruta === 'norte-a-sur'
-    );
-    const actoresOvalo = actores.filter(
-      (a) => a.ruta !== 'sur-a-norte' && a.ruta !== 'norte-a-sur'
-    );
-
-    // 4. Vehículos de la vía vertical (dibujados antes del anillo para que pasen por debajo)
-    for (const actor of actoresVerticales) {
+    // 4. Vehículos en paso inferior: solo se dibujan cuando están fuera del tablero del óvalo (pasan por debajo)
+    for (const actor of actores) {
+      if (!rutasPasoInferior.has(actor.ruta)) continue;
+      if (
+        medidasOvalo &&
+        this.estaPuntoEnTableroOvalo(actor.postura.posicionEjeTrasero, medidasOvalo)
+      ) {
+        continue;
+      }
       const spec =
         catalogo.find((v) => v.id === actor.idVehiculo) ?? this.vehiculo();
       this.dibujarVehiculoIndividual(
@@ -175,9 +189,16 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       );
     }
 
-    // 5. Anillo del óvalo y sus 2 líneas punteadas de carril encima (el óvalo va sobre la vía vertical)
+    // 5. Anillo del óvalo y sus 2 líneas punteadas de carril
     if (franjaAnillo) {
       this.dibujarPoligonoRelleno(ctx, franjaAnillo, aPantalla, colorAsfalto, null, 0);
+      this.dibujarLineasCarrilOvaloCompleto(
+        ctx,
+        franjaAnillo,
+        geom,
+        aPantalla,
+        colorLineaCarril
+      );
     }
 
     ctx.save();
@@ -186,9 +207,10 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     this.dibujarPolilinea(ctx, geom.puntosCarril2, aPantalla, colorLineaCarril, 1.4);
     ctx.restore();
 
-    // 6. Vehículos circulando en el óvalo (o vehículo principal si no hay actores)
+    // 6. Vehículos que circulan por el óvalo o entran/salen por los ramales (encima del óvalo)
     if (actores.length > 0) {
-      for (const actor of actoresOvalo) {
+      for (const actor of actores) {
+        if (rutasPasoInferior.has(actor.ruta)) continue;
         const spec =
           catalogo.find((v) => v.id === actor.idVehiculo) ?? this.vehiculo();
         this.dibujarVehiculoIndividual(
@@ -209,10 +231,43 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       );
     }
 
-    // 7. Semáforos en el óvalo e intersecciones
+    // 7. Semáforos
     for (const sem of this.semaforos()) {
       this.dibujarSemaforo(ctx, sem, aPantalla);
     }
+  }
+
+  private obtenerMedidasAnilloOvalo(
+    franjaAnillo: Punto2D[] | null,
+    geom: ResultadoGeometriaCurva
+  ): { rxInt: number; ryInt: number; rxExt: number; ryExt: number } | null {
+    if (!franjaAnillo || franjaAnillo.length < 4) return null;
+    const xs = franjaAnillo.map((p) => p.x);
+    const ys = franjaAnillo.map((p) => p.y);
+    const rxExt = (Math.max(...xs) - Math.min(...xs)) / 2;
+    const ryExt = (Math.max(...ys) - Math.min(...ys)) / 2;
+
+    const p1 = geom.puntosCarril1[0];
+    const p2 = geom.puntosCarril2[0];
+    const anchoCarril =
+      p1 && p2 ? Math.hypot(p2.x - p1.x, p2.y - p1.y) : 3.6;
+    const anchoCalzada = Math.max(4.4, anchoCarril * 2);
+
+    return {
+      rxInt: Math.max(4, rxExt - anchoCalzada),
+      ryInt: Math.max(3, ryExt - anchoCalzada),
+      rxExt,
+      ryExt
+    };
+  }
+
+  private estaPuntoEnTableroOvalo(
+    pt: Punto2D,
+    medidas: { rxInt: number; ryInt: number; rxExt: number; ryExt: number }
+  ): boolean {
+    const normExt = (pt.x / medidas.rxExt) ** 2 + (pt.y / medidas.ryExt) ** 2;
+    const normInt = (pt.x / medidas.rxInt) ** 2 + (pt.y / medidas.ryInt) ** 2;
+    return normExt <= 1.02 && normInt >= 0.96;
   }
 
   private dibujarSemaforo(
@@ -231,13 +286,11 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     ctx.save();
     ctx.translate(pt.x, pt.y);
 
-    // Halo del estado activo
     ctx.beginPath();
     ctx.arc(0, 0, 12, 0, Math.PI * 2);
     ctx.fillStyle = `${colorActivo}33`;
     ctx.fill();
 
-    // Carcasa del semáforo
     ctx.fillStyle = '#0f172a';
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.4;
@@ -246,7 +299,6 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
     ctx.fill();
     ctx.stroke();
 
-    // Tres luces (rojo arriba, amarillo medio, verde abajo)
     const luces: { y: number; color: string; activa: boolean }[] = [
       { y: -8, color: '#f04c4d', activa: sem.estado === 'rojo' },
       { y: 0, color: '#fdd839', activa: sem.estado === 'amarillo' },
@@ -260,7 +312,6 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       ctx.fill();
     }
 
-    // Etiqueta corta
     ctx.font = '700 9px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#0f172a';
@@ -573,5 +624,44 @@ export class LienzoSimulacion implements AfterViewInit, OnChanges {
       default:
         return '#005FAE';
     }
+  }
+
+  private dibujarLineasCarrilOvaloCompleto(
+    ctx: CanvasRenderingContext2D,
+    franjaAnillo: Punto2D[],
+    geom: ResultadoGeometriaCurva,
+    aPantalla: (pt: Punto2D) => Punto2D,
+    color: string
+  ): void {
+    const medidas = this.obtenerMedidasAnilloOvalo(franjaAnillo, geom);
+    if (!medidas) {
+      return;
+    }
+
+    const rxCentro = (medidas.rxExt + medidas.rxInt) * 0.5;
+    const ryCentro = (medidas.ryExt + medidas.ryInt) * 0.5;
+    const anchoCalzada = Math.max(4.4, medidas.rxExt - medidas.rxInt);
+    const offsetCarril = anchoCalzada * 0.25;
+
+    const pasos = 140;
+    const carrilInterno: Punto2D[] = [];
+    const carrilExterno: Punto2D[] = [];
+
+    for (let i = 0; i <= pasos; i++) {
+      const ang = (i / pasos) * Math.PI * 2;
+      const rxIntC = Math.max(4, rxCentro - offsetCarril);
+      const ryIntC = Math.max(3, ryCentro - offsetCarril);
+      const rxExtC = rxCentro + offsetCarril;
+      const ryExtC = ryCentro + offsetCarril;
+
+      carrilInterno.push({ x: rxIntC * Math.cos(ang), y: ryIntC * Math.sin(ang) });
+      carrilExterno.push({ x: rxExtC * Math.cos(ang), y: ryExtC * Math.sin(ang) });
+    }
+
+    ctx.save();
+    ctx.setLineDash([7, 7]);
+    this.dibujarPolilinea(ctx, carrilInterno, aPantalla, color, 1.4);
+    this.dibujarPolilinea(ctx, carrilExterno, aPantalla, color, 1.4);
+    ctx.restore();
   }
 }

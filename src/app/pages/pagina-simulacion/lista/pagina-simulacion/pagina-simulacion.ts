@@ -40,6 +40,35 @@ interface EstadoActorInterno {
   detenidoPorSemaforo?: boolean;
 }
 
+const TODAS_LAS_RUTAS: RutaOvalo[] = [
+  'ovalo-perimetral',
+  'sur-a-norte',
+  'norte-a-sur',
+  'oeste-a-este',
+  'este-a-oeste',
+  'norte-a-ovalo',
+  'sur-a-ovalo',
+  'oeste-a-ovalo',
+  'este-a-ovalo',
+  'ovalo-a-norte',
+  'ovalo-a-sur',
+  'ovalo-a-oeste',
+  'ovalo-a-este'
+];
+
+/**
+ * Rutas de ingreso desde los extremos exteriores de las vías.
+ * En Perú: subida hacia el Norte por la derecha (+X), bajada hacia el Sur por la izquierda (-X).
+ */
+const RUTAS_INGRESO_EXTREMOS: RutaOvalo[] = [
+  'norte-a-ovalo',
+  'sur-a-ovalo',
+  'oeste-a-ovalo',
+  'este-a-ovalo',
+  'norte-a-sur',
+  'sur-a-norte'
+];
+
 @Component({
   selector: 'app-pagina-simulacion',
   imports: [PanelVehiculos, PanelParametrosCurva, LienzoSimulacion],
@@ -60,7 +89,7 @@ export class PaginaSimulacion implements OnDestroy {
   public readonly parametrosCurva = signal<ParametrosCurva>({
     tipoCurva: 'compuesta-3-radios',
     sentidoGiro: 'derecha',
-    rutaOvalo: 'ovalo-perimetral',
+    rutaOvalo: 'norte-a-ovalo',
     carrilSeleccionado: 1,
     anchoCarrilMetros: 3.6,
     semiejeXMetros: 42,
@@ -98,7 +127,7 @@ export class PaginaSimulacion implements OnDestroy {
     {
       idInstancia: 'veh-principal',
       idVehiculo: 'auto-compacto',
-      ruta: 'ovalo-perimetral',
+      ruta: 'norte-a-ovalo',
       carril: 1,
       progreso: 0,
       factorVelocidad: 1,
@@ -142,19 +171,22 @@ export class PaginaSimulacion implements OnDestroy {
     const xNorteSur = -(separacionSentidos / 2 + anchoDosCarriles / 2);
     const yCruce = Math.max(6, base.semiejeYMetros * 0.45);
 
-    const progOvalo1 = 0.22;
-    const progOvalo2 = 0.72;
+    const progOvalo1 = 0.25;
+    const progOvalo2 = 0.75;
     const ptsOvalo = this.geometriaActual().puntosEje;
     const posOvalo1 =
       ptsOvalo[Math.min(ptsOvalo.length - 1, Math.floor(progOvalo1 * ptsOvalo.length))] ?? {
-        x: base.semiejeXMetros,
-        y: 0
+        x: 0,
+        y: base.semiejeYMetros
       };
     const posOvalo2 =
       ptsOvalo[Math.min(ptsOvalo.length - 1, Math.floor(progOvalo2 * ptsOvalo.length))] ?? {
-        x: -base.semiejeXMetros,
-        y: 0
+        x: 0,
+        y: -base.semiejeYMetros
       };
+
+    const progSn = this.calcularProgresoEnY(base, 'sur-a-norte', -yCruce);
+    const progNs = this.calcularProgresoEnY(base, 'norte-a-sur', yCruce);
 
     return [
       {
@@ -178,7 +210,7 @@ export class PaginaSimulacion implements OnDestroy {
         etiqueta: 'S3 · S→N',
         ruta: 'sur-a-norte',
         posicion: { x: xSurNorte + anchoDosCarriles * 0.55, y: -yCruce },
-        progresoLineaDetencion: 0.36,
+        progresoLineaDetencion: progSn,
         estado: estadoVertical
       },
       {
@@ -186,7 +218,7 @@ export class PaginaSimulacion implements OnDestroy {
         etiqueta: 'S4 · N→S',
         ruta: 'norte-a-sur',
         posicion: { x: xNorteSur - anchoDosCarriles * 0.55, y: yCruce },
-        progresoLineaDetencion: 0.36,
+        progresoLineaDetencion: progNs,
         estado: estadoVertical
       }
     ];
@@ -319,24 +351,83 @@ export class PaginaSimulacion implements OnDestroy {
     this.velocidad.set(nuevaVelocidad);
   }
 
+  private calcularProgresoEnY(
+    base: ParametrosCurva,
+    ruta: RutaOvalo,
+    yObjetivo: number
+  ): number {
+    const geom = this.servicioGeometria.calcularGeometriaParaRuta(base, ruta, 1);
+    const pts = geom.puntosEje;
+    if (pts.length < 2) return 0.36;
+
+    let mejorIdx = 0;
+    let menorDifY = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < pts.length; i++) {
+      const dif = Math.abs(pts[i].y - yObjetivo);
+      if (dif < menorDifY) {
+        menorDifY = dif;
+        mejorIdx = i;
+      }
+    }
+    return Math.max(0.05, Math.min(0.92, mejorIdx / (pts.length - 1)));
+  }
+
   private obtenerMapaGeometriasPorRuta(): Map<string, ResultadoGeometriaCurva> {
     const base = this.parametrosCurva();
     const mapa = new Map<string, ResultadoGeometriaCurva>();
-    const rutas: RutaOvalo[] = ['ovalo-perimetral', 'sur-a-norte', 'norte-a-sur'];
     const carriles: NumeroCarril[] = [1, 2];
 
-    for (const ruta of rutas) {
+    for (const ruta of TODAS_LAS_RUTAS) {
       for (const carril of carriles) {
         const clave = `${ruta}:${carril}`;
-        const geom = this.servicioGeometria.calcularGeometria({
-          ...base,
-          rutaOvalo: ruta,
-          carrilSeleccionado: carril
-        });
-        mapa.set(clave, this.ajustarGeometriaViaRecta(geom, base, ruta, carril));
+        const geom = this.servicioGeometria.calcularGeometriaParaRuta(base, ruta, carril);
+        mapa.set(clave, geom);
       }
     }
     return mapa;
+  }
+
+  private obtenerCarrilSegunSentidoPeru(ruta: RutaOvalo, respaldo: NumeroCarril): NumeroCarril {
+    switch (ruta) {
+      case 'sur-a-norte':
+      case 'sur-a-ovalo':
+        return 2;
+      case 'norte-a-sur':
+      case 'norte-a-ovalo':
+        return 1;
+      default:
+        return respaldo;
+    }
+  }
+
+  private elegirRutaIngresoExtremo(
+    indice: number,
+    config: ConfiguracionTrafico,
+    rutaBase: RutaOvalo
+  ): RutaOvalo {
+    if (config.modoTrafico === 'unico') {
+      return rutaBase;
+    }
+
+    const candidatas = config.incluirViaRecta
+      ? RUTAS_INGRESO_EXTREMOS
+      : RUTAS_INGRESO_EXTREMOS.filter(
+          (r) => r !== 'norte-a-sur' && r !== 'sur-a-norte'
+        );
+
+    return candidatas[indice % candidatas.length];
+  }
+
+  private estaPuntoLibreEnEntrada(
+    puntoInicio: Punto2D,
+    largoNuevoVehiculo: number,
+    posicionesOcupadas: { pos: Punto2D; largo: number }[]
+  ): boolean {
+    const distanciaMinimaEntrada = largoNuevoVehiculo + 6.5;
+    return !posicionesOcupadas.some((o) => {
+      const dist = Math.hypot(puntoInicio.x - o.pos.x, puntoInicio.y - o.pos.y);
+      return dist < Math.max(distanciaMinimaEntrada, o.largo + 6.0);
+    });
   }
 
   private regenerarFlotaVehicular(): void {
@@ -345,31 +436,88 @@ export class PaginaSimulacion implements OnDestroy {
     const idBase = this.idVehiculoSeleccionado();
     const carrilBase = this.parametrosCurva().carrilSeleccionado;
     const rutaBase = this.parametrosCurva().rutaOvalo;
+    const mapaGeom = this.obtenerMapaGeometriasPorRuta();
+    const catalogo = this.listaVehiculos();
 
     const nuevos: EstadoActorInterno[] = [];
+    const posicionesOcupadas: { pos: Punto2D; largo: number }[] = [];
 
     for (let i = 0; i < total; i++) {
       if (i === 0) {
+        const spec0 = catalogo.find((v) => v.id === idBase) ?? this.vehiculoActual();
+        const geom0 = mapaGeom.get(`${rutaBase}:${carrilBase}`) ?? this.geometriaActual();
+        const post0 = this.servicioCinematica.calcularPosturaEnProgreso(
+          geom0,
+          spec0,
+          0
+        );
         nuevos.push({
           idInstancia: 'veh-principal',
           idVehiculo: idBase,
           ruta: rutaBase,
           carril: carrilBase,
-          progreso: this.progreso(),
+          progreso: 0,
           factorVelocidad: 1.0,
           detenidoPorSemaforo: false
+        });
+        posicionesOcupadas.push({
+          pos: post0.posicionEjeTrasero,
+          largo: spec0.largoMetros
         });
         continue;
       }
 
-      const rutaAsignada = this.elegirRutaParaIndice(i, config, rutaBase);
-      const carrilAsignado: NumeroCarril = i % 2 === 0 ? 1 : 2;
+      const rutaAsignada = this.elegirRutaIngresoExtremo(i, config, rutaBase);
+      const carrilAsignado = this.obtenerCarrilSegunSentidoPeru(
+        rutaAsignada,
+        i % 2 === 0 ? 1 : 2
+      );
       const idVehiculoAsignado =
         config.modoTrafico === 'fluido-aleatorio'
           ? this.elegirTipoAleatorio(config.tiposHabilitados, idBase)
           : idBase;
+      const spec =
+        catalogo.find((v) => v.id === idVehiculoAsignado) ?? this.vehiculoActual();
+      const geom = mapaGeom.get(`${rutaAsignada}:${carrilAsignado}`) ?? this.geometriaActual();
 
-      const progresoInicial = Number(((i * 0.16) % 0.92).toFixed(3));
+      let progresoInicial = 0;
+      const postExtremo = this.servicioCinematica.calcularPosturaEnProgreso(geom, spec, 0);
+
+      if (
+        !this.estaPuntoLibreEnEntrada(
+          postExtremo.posicionEjeTrasero,
+          spec.largoMetros,
+          posicionesOcupadas
+        )
+      ) {
+        for (let pasoProg = 0.05; pasoProg <= 0.45; pasoProg += 0.05) {
+          const postCand = this.servicioCinematica.calcularPosturaEnProgreso(
+            geom,
+            spec,
+            pasoProg
+          );
+          if (
+            this.estaPuntoLibreEnEntrada(
+              postCand.posicionEjeTrasero,
+              spec.largoMetros,
+              posicionesOcupadas
+            )
+          ) {
+            progresoInicial = Number(pasoProg.toFixed(3));
+            break;
+          }
+        }
+      }
+
+      const posturaElegida = this.servicioCinematica.calcularPosturaEnProgreso(
+        geom,
+        spec,
+        progresoInicial
+      );
+      posicionesOcupadas.push({
+        pos: posturaElegida.posicionEjeTrasero,
+        largo: spec.largoMetros
+      });
 
       nuevos.push({
         idInstancia: `veh-${++this.contadorInstancias}`,
@@ -379,30 +527,14 @@ export class PaginaSimulacion implements OnDestroy {
         progreso: progresoInicial,
         factorVelocidad:
           config.modoTrafico === 'fluido-aleatorio'
-            ? 0.88 + ((i * 7) % 5) * 0.05
+            ? 0.92 + ((i * 5) % 4) * 0.05
             : 1.0,
         detenidoPorSemaforo: false
       });
     }
 
+    this.progreso.set(0);
     this.actoresInternos.set(nuevos);
-  }
-
-  private elegirRutaParaIndice(
-    indice: number,
-    config: ConfiguracionTrafico,
-    rutaBase: RutaOvalo
-  ): RutaOvalo {
-    if (config.modoTrafico === 'unico' || !config.incluirViaRecta) {
-      return rutaBase;
-    }
-    const opciones: RutaOvalo[] = [
-      'norte-a-sur',
-      'ovalo-perimetral',
-      'sur-a-norte',
-      'ovalo-perimetral'
-    ];
-    return opciones[indice % opciones.length];
   }
 
   private elegirTipoAleatorio(
@@ -416,61 +548,6 @@ export class PaginaSimulacion implements OnDestroy {
     return habilitados[idx];
   }
 
-  private ajustarGeometriaViaRecta(
-    geom: ResultadoGeometriaCurva,
-    base: ParametrosCurva,
-    ruta: RutaOvalo,
-    carril: NumeroCarril
-  ): ResultadoGeometriaCurva {
-    if (ruta !== 'sur-a-norte' && ruta !== 'norte-a-sur') {
-      return geom;
-    }
-
-    const anchoDosCarriles = base.anchoCalzadaMetros;
-    const separacionSentidos = Math.max(4.5, base.anchoCarrilMetros * 1.4);
-    const centroCalzadaX =
-      ruta === 'sur-a-norte'
-        ? separacionSentidos / 2 + anchoDosCarriles / 2
-        : -(separacionSentidos / 2 + anchoDosCarriles / 2);
-
-    const desplazamientoCarril =
-      carril === 1 ? -base.anchoCarrilMetros * 0.5 : base.anchoCarrilMetros * 0.5;
-    const xObjetivo = centroCalzadaX + desplazamientoCarril;
-
-    const extensionAcceso = Math.max(24, base.longitudTramoRectoMetros * 1.6);
-    const yLimite = base.semiejeYMetros + extensionAcceso;
-    const yInicio = ruta === 'norte-a-sur' ? yLimite : -yLimite;
-    const yFin = ruta === 'norte-a-sur' ? -yLimite : yLimite;
-
-    const pasos = 60;
-    const puntosEje: Punto2D[] = [];
-    for (let i = 0; i <= pasos; i++) {
-      const t = i / pasos;
-      puntosEje.push({
-        x: xObjetivo,
-        y: yInicio + (yFin - yInicio) * t
-      });
-    }
-
-    const mitadCalzada = anchoDosCarriles / 2;
-    const bordeIzq: Punto2D[] = puntosEje.map((p) => ({
-      x: centroCalzadaX - mitadCalzada,
-      y: p.y
-    }));
-    const bordeDer: Punto2D[] = puntosEje.map((p) => ({
-      x: centroCalzadaX + mitadCalzada,
-      y: p.y
-    }));
-
-    return {
-      ...geom,
-      longitudTotalRecorridoMetros: Math.abs(yFin - yInicio),
-      puntosEje,
-      puntosBordeInterno: bordeIzq,
-      puntosBordeExterno: bordeDer
-    };
-  }
-
   private iniciarBucleAnimacion(): void {
     if (!isPlatformBrowser(this.platformId) || this.idFrameAnimacion !== null) {
       return;
@@ -480,7 +557,10 @@ export class PaginaSimulacion implements OnDestroy {
 
     const pasoFrame = (timestamp: number): void => {
       if (this.marcaTiempoAnterior !== null) {
-        const deltaSegundos = (timestamp - this.marcaTiempoAnterior) / 1000;
+        const deltaSegundos = Math.min(
+          0.1,
+          (timestamp - this.marcaTiempoAnterior) / 1000
+        );
         const velFactor = Math.max(0.1, this.velocidad());
 
         this.tiempoCicloSemaforo.update((prev) => prev + deltaSegundos * velFactor);
@@ -491,7 +571,7 @@ export class PaginaSimulacion implements OnDestroy {
         const esFlujoContinuo =
           config.modoTrafico === 'fluido-aleatorio' || config.cantidadVehiculos > 1;
 
-        const actualizados = this.avanzarActoresSinCongestion(
+        const actualizados = this.avanzarActoresContinuo(
           this.actoresInternos(),
           incrementoBase,
           esFlujoContinuo
@@ -517,7 +597,23 @@ export class PaginaSimulacion implements OnDestroy {
     this.idFrameAnimacion = requestAnimationFrame(pasoFrame);
   }
 
-  private avanzarActoresSinCongestion(
+  private aplicaSemaforoARuta(semRuta: RutaOvalo, actorRuta: RutaOvalo): boolean {
+    if (semRuta === actorRuta) {
+      return true;
+    }
+    if (semRuta === 'ovalo-perimetral') {
+      return actorRuta.includes('ovalo');
+    }
+    if (semRuta === 'sur-a-norte') {
+      return actorRuta === 'sur-a-norte' || actorRuta === 'sur-a-ovalo';
+    }
+    if (semRuta === 'norte-a-sur') {
+      return actorRuta === 'norte-a-sur' || actorRuta === 'norte-a-ovalo';
+    }
+    return false;
+  }
+
+  private avanzarActoresContinuo(
     actores: EstadoActorInterno[],
     incrementoBase: number,
     flujoContinuo: boolean
@@ -528,7 +624,7 @@ export class PaginaSimulacion implements OnDestroy {
     const longBase = Math.max(40, this.geometriaActual().longitudTotalRecorridoMetros);
     const listaSemaforos = this.semaforos();
 
-    return actores.map((actor, indice) => {
+    const estadosActuales = actores.map((actor) => {
       const spec =
         catalogo.find((v) => v.id === actor.idVehiculo) ?? this.vehiculoActual();
       const geomRuta = mapaGeom.get(`${actor.ruta}:${actor.carril}`);
@@ -536,70 +632,142 @@ export class PaginaSimulacion implements OnDestroy {
         30,
         geomRuta?.longitudTotalRecorridoMetros ?? longBase
       );
+      const postura = this.servicioCinematica.calcularPosturaEnProgreso(
+        geomRuta ?? this.geometriaActual(),
+        spec,
+        actor.progreso
+      );
+      return {
+        actor,
+        spec,
+        geomRuta,
+        longitudRuta,
+        postura
+      };
+    });
 
+    const posicionesActivas = estadosActuales.map((e) => ({
+      pos: e.postura.posicionEjeTrasero,
+      largo: e.spec.largoMetros
+    }));
+
+    return estadosActuales.map((actual, indice) => {
+      const { actor, spec, longitudRuta, postura } = actual;
       const ajusteLongitud = longBase / longitudRuta;
-      let paso = incrementoBase * actor.factorVelocidad * ajusteLongitud;
+      let paso = Math.max(0.0004, incrementoBase * actor.factorVelocidad * ajusteLongitud);
       let detenidoPorSemaforo = false;
 
-      const margenDetencionProgreso = (spec.largoMetros + 6.5) / longitudRuta;
+      const dirX = Math.cos(postura.anguloCarroceriaRad);
+      const dirY = Math.sin(postura.anguloCarroceriaRad);
+      const frenteX =
+        postura.posicionEjeTrasero.x +
+        dirX * Math.max(1, spec.largoMetros - spec.vueloTraseroMetros);
+      const frenteY =
+        postura.posicionEjeTrasero.y +
+        dirY * Math.max(1, spec.largoMetros - spec.vueloTraseroMetros);
+
+      // 1. Control estricto de semáforo por distancia espacial real en metros
+      const distanciaZonaFrenado = Math.max(10, spec.largoMetros + 8.5);
+      const distanciaLineaDetencion = 2.4;
+
       for (const sem of listaSemaforos) {
-        if (sem.ruta !== actor.ruta) {
+        if (!this.aplicaSemaforoARuta(sem.ruta, actor.ruta)) {
           continue;
         }
-        if (sem.estado === 'rojo' || sem.estado === 'amarillo') {
-          let distHastaLinea = sem.progresoLineaDetencion - actor.progreso;
-          if (actor.ruta === 'ovalo-perimetral' && distHastaLinea < 0) {
-            distHastaLinea += 1;
+        if (sem.estado !== 'rojo' && sem.estado !== 'amarillo') {
+          continue;
+        }
+
+        const dxSem = sem.posicion.x - frenteX;
+        const dySem = sem.posicion.y - frenteY;
+        const distanciaDirecta = Math.hypot(dxSem, dySem);
+
+        if (distanciaDirecta > distanciaZonaFrenado) {
+          continue;
+        }
+
+        // Comprobar que el semáforo está delante en el sentido de avance del vehículo
+        const avanceHaciaSem =
+          distanciaDirecta > 0.001
+            ? (dxSem * dirX + dySem * dirY) / distanciaDirecta
+            : 1;
+
+        if (avanceHaciaSem > 0.25) {
+          if (distanciaDirecta <= distanciaLineaDetencion) {
+            paso = 0;
+            detenidoPorSemaforo = true;
+            break;
           }
 
-          if (distHastaLinea > 0 && distHastaLinea <= margenDetencionProgreso) {
-            const debeDetener =
-              sem.estado === 'rojo' || distHastaLinea > margenDetencionProgreso * 0.35;
+          const debeDetener =
+            sem.estado === 'rojo' || distanciaDirecta > distanciaZonaFrenado * 0.35;
 
-            if (debeDetener) {
-              if (distHastaLinea <= margenDetencionProgreso * 0.22) {
-                paso = 0;
-                detenidoPorSemaforo = true;
+          if (debeDetener) {
+            const proporcion =
+              (distanciaDirecta - distanciaLineaDetencion) /
+              Math.max(0.5, distanciaZonaFrenado - distanciaLineaDetencion);
+            paso *= Math.max(0.05, Math.min(1, proporcion));
+          }
+        }
+      }
+
+      // 2. Separación física respecto a vehículos que van delante
+      if (!detenidoPorSemaforo && paso > 0) {
+        const centroActualX =
+          postura.posicionEjeTrasero.x +
+          dirX * (spec.largoMetros * 0.5 - spec.vueloTraseroMetros);
+        const centroActualY =
+          postura.posicionEjeTrasero.y +
+          dirY * (spec.largoMetros * 0.5 - spec.vueloTraseroMetros);
+
+        let factorSeguimiento = 1;
+
+        for (let j = 0; j < estadosActuales.length; j++) {
+          if (indice === j) {
+            continue;
+          }
+          const otro = estadosActuales[j];
+          const otroDirX = Math.cos(otro.postura.anguloCarroceriaRad);
+          const otroDirY = Math.sin(otro.postura.anguloCarroceriaRad);
+          const otroCentroX =
+            otro.postura.posicionEjeTrasero.x +
+            otroDirX * (otro.spec.largoMetros * 0.5 - otro.spec.vueloTraseroMetros);
+          const otroCentroY =
+            otro.postura.posicionEjeTrasero.y +
+            otroDirY * (otro.spec.largoMetros * 0.5 - otro.spec.vueloTraseroMetros);
+
+          const dx = otroCentroX - centroActualX;
+          const dy = otroCentroY - centroActualY;
+          const distanciaCentros = Math.hypot(dx, dy);
+
+          const distanciaMinima =
+            (spec.largoMetros + otro.spec.largoMetros) * 0.5 + 2.4;
+          const zonaAdaptacion = distanciaMinima + 4.5;
+
+          if (distanciaCentros < zonaAdaptacion && distanciaCentros > 0.001) {
+            const productoEscalar = (dx * dirX + dy * dirY) / distanciaCentros;
+            if (productoEscalar > 0.15) {
+              if (distanciaCentros <= distanciaMinima) {
+                factorSeguimiento = Math.min(factorSeguimiento, 0.12);
               } else {
-                const factorSemaforo = Math.max(
-                  0.12,
-                  (distHastaLinea - margenDetencionProgreso * 0.2) /
-                    margenDetencionProgreso
+                const ratio =
+                  (distanciaCentros - distanciaMinima) /
+                  (zonaAdaptacion - distanciaMinima);
+                factorSeguimiento = Math.min(
+                  factorSeguimiento,
+                  Math.max(0.2, ratio)
                 );
-                paso *= Math.min(1, factorSemaforo);
               }
             }
           }
         }
+
+        paso *= factorSeguimiento;
       }
 
-      const brechaMinimaProgreso = (spec.largoMetros + 8.5) / longitudRuta;
+      const siguienteProgreso = actor.progreso + paso;
 
-      for (let j = 0; j < actores.length; j++) {
-        if (indice === j) {
-          continue;
-        }
-        const otro = actores[j];
-        if (otro.ruta !== actor.ruta || otro.carril !== actor.carril) {
-          continue;
-        }
-
-        let diferencia = otro.progreso - actor.progreso;
-        if (actor.ruta === 'ovalo-perimetral' && diferencia < 0) {
-          diferencia += 1;
-        }
-
-        if (diferencia > 0 && diferencia < brechaMinimaProgreso * 1.4) {
-          const factorFrenado = Math.max(
-            0.15,
-            (diferencia - brechaMinimaProgreso * 0.6) / brechaMinimaProgreso
-          );
-          paso *= Math.min(1, factorFrenado);
-        }
-      }
-
-      let siguienteProgreso = actor.progreso + paso;
-
+      // 3. Al completar recorrido, reaparece siempre por un extremo de ingreso libre
       if (siguienteProgreso >= 1) {
         if (!flujoContinuo) {
           return { ...actor, progreso: 1, detenidoPorSemaforo: false };
@@ -608,17 +776,19 @@ export class PaginaSimulacion implements OnDestroy {
         const nuevaRuta =
           indice === 0
             ? this.parametrosCurva().rutaOvalo
-            : this.elegirRutaParaIndice(
-                indice + Math.floor(Math.random() * 4),
+            : this.elegirRutaIngresoExtremo(
+                indice + Math.floor(Math.random() * RUTAS_INGRESO_EXTREMOS.length),
                 config,
                 this.parametrosCurva().rutaOvalo
               );
-        const nuevoCarril: NumeroCarril =
+        const nuevoCarril = this.obtenerCarrilSegunSentidoPeru(
+          nuevaRuta,
           indice === 0
             ? this.parametrosCurva().carrilSeleccionado
             : Math.random() < 0.5
               ? 1
-              : 2;
+              : 2
+        );
         const nuevoTipo =
           indice === 0
             ? this.idVehiculoSeleccionado()
@@ -629,16 +799,28 @@ export class PaginaSimulacion implements OnDestroy {
                 )
               : this.idVehiculoSeleccionado();
 
-        const entradaOcupada = actores.some(
-          (otro, k) =>
-            k !== indice &&
-            otro.ruta === nuevaRuta &&
-            otro.carril === nuevoCarril &&
-            otro.progreso < brechaMinimaProgreso * 1.3
+        const nuevaSpec =
+          catalogo.find((v) => v.id === nuevoTipo) ?? this.vehiculoActual();
+        const nuevaGeom =
+          mapaGeom.get(`${nuevaRuta}:${nuevoCarril}`) ?? this.geometriaActual();
+        const postInicio = this.servicioCinematica.calcularPosturaEnProgreso(
+          nuevaGeom,
+          nuevaSpec,
+          0
         );
 
-        if (entradaOcupada) {
-          return { ...actor, progreso: 0.995, detenidoPorSemaforo };
+        if (
+          !this.estaPuntoLibreEnEntrada(
+            postInicio.posicionEjeTrasero,
+            nuevaSpec.largoMetros,
+            posicionesActivas
+          )
+        ) {
+          return {
+            ...actor,
+            progreso: 0.995,
+            detenidoPorSemaforo: false
+          };
         }
 
         return {
